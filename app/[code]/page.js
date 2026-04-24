@@ -114,15 +114,17 @@ export default function Lobby({ params }) {
 
     const { data: existing } = await supabase
       .from("avalon_players")
-      .select("id")
+      .select("id,first_name,last_name")
       .eq("game_code", code)
       .ilike("name", trimmed)
       .limit(1)
     if (existing?.length > 0) {
-      // If this is our own saved username, recover the player ID (e.g. localStorage was cleared)
-      if (savedProfile?.username?.toLowerCase() === trimmed.toLowerCase()) {
-        localStorage.setItem(`avalon:${code}:playerId`, existing[0].id)
-        setMyPlayerId(existing[0].id)
+      const match = existing[0]
+      const isMe = match.first_name?.toLowerCase() === trimmedFirst.toLowerCase()
+               && match.last_name?.toLowerCase()  === trimmedLast.toLowerCase()
+      if (isMe) {
+        localStorage.setItem(`avalon:${code}:playerId`, match.id)
+        setMyPlayerId(match.id)
         await refreshPlayers()
         setJoining(false)
         return
@@ -142,8 +144,7 @@ export default function Lobby({ params }) {
       .select("id")
       .single()
 
-    if (error) { alert("Join error: " + error.message + " | code: " + error.code); setJoinError("Failed to join."); setJoining(false); return }
-    if (!data) { alert("Join error: insert returned no data"); setJoining(false); return }
+    if (error) { setJoinError("Failed to join."); setJoining(false); return }
     localStorage.setItem(`avalon:${code}:playerId`, data.id)
     setMyPlayerId(data.id)
     await refreshPlayers()
