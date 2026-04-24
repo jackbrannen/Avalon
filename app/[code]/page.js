@@ -142,7 +142,8 @@ export default function Lobby({ params }) {
       .select("id")
       .single()
 
-    if (error) { setJoinError("Failed to join."); setJoining(false); return }
+    if (error) { alert("Join error: " + error.message + " | code: " + error.code); setJoinError("Failed to join."); setJoining(false); return }
+    if (!data) { alert("Join error: insert returned no data"); setJoining(false); return }
     localStorage.setItem(`avalon:${code}:playerId`, data.id)
     setMyPlayerId(data.id)
     await refreshPlayers()
