@@ -119,6 +119,14 @@ export default function Lobby({ params }) {
       .ilike("name", trimmed)
       .limit(1)
     if (existing?.length > 0) {
+      // If this is our own saved username, recover the player ID (e.g. localStorage was cleared)
+      if (savedProfile?.username?.toLowerCase() === trimmed.toLowerCase()) {
+        localStorage.setItem(`avalon:${code}:playerId`, existing[0].id)
+        setMyPlayerId(existing[0].id)
+        setJoining(false)
+        await refreshPlayers()
+        return
+      }
       setJoinError("That name is taken.")
       setJoining(false)
       return
