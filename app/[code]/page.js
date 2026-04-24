@@ -57,7 +57,7 @@ export default function Lobby({ params }) {
   async function refreshPlayers() {
     const { data } = await supabase
       .from("avalon_players")
-      .select("id,name,ready,created_at")
+      .select("id,name,created_at")
       .eq("game_code", code)
       .order("created_at", { ascending: true })
     if (data) setPlayers(data)
@@ -107,28 +107,22 @@ export default function Lobby({ params }) {
     if (!trimmed || joining) return
     const trimmedFirst = (savedProfile?.firstName || firstName).trim()
     const trimmedLast  = (savedProfile?.lastName  || lastName).trim()
-    if (!trimmedFirst || !trimmedLast) {
-      alert("DEBUG: missing name. savedProfile=" + JSON.stringify(savedProfile) + " firstName=" + JSON.stringify(firstName) + " lastName=" + JSON.stringify(lastName))
-      return
-    }
+    if (!trimmedFirst || !trimmedLast) return
 
     setJoining(true)
     setJoinError("")
 
-    const { data: existing, error: existingError } = await supabase
+    const { data: existing } = await supabase
       .from("avalon_players")
       .select("id,first_name,last_name")
       .eq("game_code", code)
       .ilike("name", trimmed)
       .limit(1)
 
-    alert("DEBUG existing: " + JSON.stringify(existing) + " err=" + JSON.stringify(existingError))
-
     if (existing?.length > 0) {
       const match = existing[0]
       const isMe = match.first_name?.toLowerCase() === trimmedFirst.toLowerCase()
                && match.last_name?.toLowerCase()  === trimmedLast.toLowerCase()
-      alert("DEBUG name taken. isMe=" + isMe + " match=" + JSON.stringify(match) + " trimmedFirst=" + trimmedFirst + " trimmedLast=" + trimmedLast)
       if (isMe) {
         localStorage.setItem(`avalon:${code}:playerId`, match.id)
         setMyPlayerId(match.id)
@@ -141,7 +135,6 @@ export default function Lobby({ params }) {
       return
     }
 
-    alert("DEBUG: name not found, inserting...")
     const newProfile = { firstName: trimmedFirst, lastName: trimmedLast, username: trimmed }
     saveProfile(newProfile)
     setSavedProfile(newProfile)
@@ -152,7 +145,6 @@ export default function Lobby({ params }) {
       .select("id")
       .single()
 
-    alert("DEBUG insert result: data=" + JSON.stringify(data) + " error=" + JSON.stringify(error))
     if (error) { setJoinError("Failed to join."); setJoining(false); return }
     localStorage.setItem(`avalon:${code}:playerId`, data.id)
     setMyPlayerId(data.id)
