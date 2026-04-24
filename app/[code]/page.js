@@ -60,7 +60,7 @@ export default function Lobby({ params }) {
       .select("id,name,ready,created_at")
       .eq("game_code", code)
       .order("created_at", { ascending: true })
-    setPlayers(data ?? [])
+    if (data) setPlayers(data)
   }
 
   async function loadGame() {
@@ -123,8 +123,8 @@ export default function Lobby({ params }) {
       if (savedProfile?.username?.toLowerCase() === trimmed.toLowerCase()) {
         localStorage.setItem(`avalon:${code}:playerId`, existing[0].id)
         setMyPlayerId(existing[0].id)
-        setJoining(false)
         await refreshPlayers()
+        setJoining(false)
         return
       }
       setJoinError("That name is taken.")
