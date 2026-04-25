@@ -209,7 +209,7 @@ export default function Lobby({ params }) {
       {canStart && (
         <div style={{ padding: "20px 24px", background: GOLD }}>
           <div style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(0,0,0,0.5)", marginBottom: 12 }}>
-            {count} players — ready to start!
+            Ready to Start?
           </div>
           <button
             onClick={startGame}
@@ -220,32 +220,6 @@ export default function Lobby({ params }) {
           </button>
         </div>
       )}
-
-      {/* Players */}
-      <div style={{ padding: "28px 24px 0" }}>
-        <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(232,220,200,0.35)", marginBottom: 14 }}>
-          Players — {count} / {MAX_PLAYERS}
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-          {players.map((p, i) => (
-            <div key={p.id} style={{
-              background: CARD, padding: "14px 16px",
-              display: "flex", alignItems: "center", gap: 10,
-            }}>
-              <span style={{ fontSize: 12, fontWeight: 700, opacity: 0.3, minWidth: 20 }}>{i + 1}</span>
-              <span style={{ fontSize: 17, fontWeight: 700, flex: 1 }}>
-                {p.name}
-                {p.id === myPlayerId && <span style={{ opacity: 0.4, fontSize: 12, fontWeight: 600 }}> you</span>}
-              </span>
-            </div>
-          ))}
-          {count < MIN_PLAYERS && (
-            <div style={{ background: CARD, padding: "14px 16px", opacity: 0.35, fontSize: 14, fontStyle: "italic" }}>
-              Need at least {MIN_PLAYERS} players
-            </div>
-          )}
-        </div>
-      </div>
 
       {/* Join */}
       <div style={{ padding: "28px 24px 0" }}>
@@ -282,6 +256,32 @@ export default function Lobby({ params }) {
             Waiting for the host to start…
           </div>
         )}
+      </div>
+
+      {/* Players */}
+      <div style={{ padding: "28px 24px 0" }}>
+        <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(232,220,200,0.35)", marginBottom: 14 }}>
+          Players — {count} / {MAX_PLAYERS}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          {players.map((p, i) => (
+            <div key={p.id} style={{
+              background: CARD, padding: "14px 16px",
+              display: "flex", alignItems: "center", gap: 10,
+            }}>
+              <span style={{ fontSize: 12, fontWeight: 700, opacity: 0.3, minWidth: 20 }}>{i + 1}</span>
+              <span style={{ fontSize: 17, fontWeight: 700, flex: 1 }}>
+                {p.name}
+                {p.id === myPlayerId && <span style={{ opacity: 0.4, fontSize: 12, fontWeight: 600 }}> you</span>}
+              </span>
+            </div>
+          ))}
+          {count < MIN_PLAYERS && (
+            <div style={{ background: CARD, padding: "14px 16px", opacity: 0.35, fontSize: 14, fontStyle: "italic" }}>
+              Need at least {MIN_PLAYERS} players
+            </div>
+          )}
+        </div>
       </div>
 
     </div>

@@ -28,18 +28,44 @@ const ROLE_LABEL = {
   minion:   "Minion of Mordred",
 }
 
+const STYLES = `
+  @keyframes avFlipIn {
+    0%   { transform: perspective(700px) rotateY(-80deg) scale(0.85); opacity: 0; }
+    100% { transform: perspective(700px) rotateY(0deg)   scale(1);    opacity: 1; }
+  }
+  @keyframes avFlipOut {
+    0%   { transform: perspective(700px) rotateY(0deg)  scale(1);   opacity: 1; }
+    100% { transform: perspective(700px) rotateY(80deg) scale(0.5); opacity: 0; }
+  }
+  @keyframes avMiniIn {
+    0%   { transform: scale(0.6) translateY(12px); opacity: 0; }
+    100% { transform: scale(1)   translateY(0);    opacity: 1; }
+  }
+  @keyframes cardFlipIn {
+    from { transform: perspective(400px) rotateY(90deg); opacity: 0; }
+    to   { transform: perspective(400px) rotateY(0deg);  opacity: 1; }
+  }
+  @keyframes titleReveal {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .av-flip-in   { animation: avFlipIn  0.35s ease forwards; }
+  .av-flip-out  { animation: avFlipOut 0.32s ease forwards; }
+  .av-mini-in   { animation: avMiniIn  0.28s ease both; }
+`
+
 export default function Play({ params }) {
   const code   = useMemo(() => params.code.toUpperCase(), [params.code])
   const router = useRouter()
 
-  const [game, setGame]       = useState(null)
-  const [players, setPlayers] = useState([])
-  const [myId, setMyId]       = useState(null)
-  const [selected, setSelected] = useState([])
-  const [target, setTarget]   = useState(null)
-  // "unset" | "shown" | "hiding" | "mini"
-  const [cardPhase, setCardPhase] = useState("unset")
-  const [acting, setActing]   = useState(false)
+  const [game, setGame]           = useState(null)
+  const [players, setPlayers]     = useState([])
+  const [myId, setMyId]           = useState(null)
+  const [selected, setSelected]   = useState([])
+  const [target, setTarget]       = useState(null)
+  const [cardPhase, setCardPhase] = useState("unset") // persists across phase changes
+  const [roleModalOpen, setRoleModalOpen] = useState(false)
+  const [acting, setActing]       = useState(false)
 
   useEffect(() => {
     const id = localStorage.getItem(`avalon:${code}:playerId`)
@@ -66,8 +92,9 @@ export default function Play({ params }) {
   useEffect(() => {
     setSelected([])
     setTarget(null)
-    setCardPhase("unset")
     setActing(false)
+    setRoleModalOpen(false)
+    // cardPhase intentionally NOT reset — persists across phases
   }, [phase])
 
   const me        = players.find(p => p.id === myId)
@@ -75,6 +102,21 @@ export default function Play({ params }) {
   const sizes     = QUEST_SIZES[game?.player_count ?? 5] ?? [2,3,2,3,3]
   const questSize = sizes[(game?.quest_number ?? 1) - 1]
   const proposed  = players.filter(p => (game?.proposed_ids ?? []).includes(p.id))
+
+  // Role info — computed once, reused in role card and modal
+  const evilPlayers = players.filter(p => p.team === "evil")
+  const evilOthers  = evilPlayers.filter(p => p.id !== myId)
+  const teamColor   = me ? (me.team === "good" ? GOOD : EVIL) : GOLD
+  const teamLabel   = me?.team === "good" ? "Good" : "Evil — Minions of Mordred"
+
+  // Mini card visibility: show on all phases once role has been seen
+  const hasSeenRole = cardPhase !== "unset"
+  const showMiniCard = !!me && hasSeenRole && (phase !== "role_reveal" || cardPhase === "mini")
+
+  function handleMiniCardTap() {
+    if (phase === "role_reveal") setCardPhase("shown")
+    else setRoleModalOpen(true)
+  }
 
   async function rpc(fn, args = {}) {
     if (acting) return
@@ -84,13 +126,13 @@ export default function Play({ params }) {
     setActing(false)
   }
 
-  // ─── sub-renderers ────────────────────────────────────────────
+  // ─── shared components ────────────────────────────────────────
 
   function QuestTrack() {
     const results = game.quest_results ?? []
     return (
       <div>
-        <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.18em", color: "rgba(232,220,200,0.35)", textAlign: "center", paddingTop: 14, paddingBottom: 4 }}>
+        <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.18em", color: "rgba(232,220,200,0.35)", textAlign: "center", paddingTop: 14, paddingBottom: 6 }}>
           Quests
         </div>
         <div style={{ display: "flex", gap: 8, justifyContent: "center", padding: "0 24px 18px" }}>
@@ -105,10 +147,10 @@ export default function Play({ params }) {
             return (
               <div key={i} style={{ flex: 1, maxWidth: 60, display: "flex", flexDirection: "column", alignItems: "center" }}>
                 <div style={{ width: "100%", aspectRatio: "1", borderRadius: "50%", background: bg, border, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-                  <span style={{ fontSize: 15, fontWeight: 900, color: col, lineHeight: 1 }}>{sz}</span>
-                  {dbl && <span style={{ fontSize: 8, fontWeight: 800, color: col, marginTop: 1 }}>†</span>}
+                  <span style={{ fontSize: 16, fontWeight: 900, color: col, lineHeight: 1 }}>{sz}</span>
+                  {dbl && <span style={{ fontSize: 9, fontWeight: 800, color: col, marginTop: 1 }}>†</span>}
                 </div>
-                <span style={{ fontSize: 10, fontWeight: 700, color: "rgba(232,220,200,0.3)", marginTop: 4 }}>{qn}</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: "rgba(232,220,200,0.4)", marginTop: 5 }}>{qn}</span>
               </div>
             )
           })}
@@ -126,13 +168,12 @@ export default function Play({ params }) {
           </div>
           {sub && <div style={{ fontSize: 14, fontWeight: 800, color: GOLD, marginTop: 4 }}>{sub}</div>}
         </div>
-        {showTrack && <QuestTrack />}
-        {!showTrack && <div style={{ paddingBottom: 16 }} />}
+        {showTrack ? <QuestTrack /> : <div style={{ paddingBottom: 16 }} />}
       </div>
     )
   }
 
-  function PlayerRow({ p, onClick, highlight, badge }) {
+  function PlayerRow({ p, onClick, highlight }) {
     return (
       <div
         onClick={onClick}
@@ -151,10 +192,9 @@ export default function Play({ params }) {
         )}
         <span style={{ fontSize: 16, fontWeight: 700, flex: 1 }}>
           {p.name}
-          {p.id === myId         && <span style={{ opacity: 0.4, fontSize: 11, fontWeight: 600 }}> you</span>}
+          {p.id === myId            && <span style={{ opacity: 0.4, fontSize: 11, fontWeight: 600 }}> you</span>}
           {p.id === game?.leader_id && <span style={{ opacity: 0.45, fontSize: 11, fontWeight: 600 }}> ♛</span>}
         </span>
-        {badge}
       </div>
     )
   }
@@ -175,6 +215,81 @@ export default function Play({ params }) {
     )
   }
 
+  // Known-player cards on role card (Merlin's evil list, Fellow Minions)
+  function KnownPlayers({ pList }) {
+    return (
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
+        {pList.map(p => (
+          <div key={p.id} style={{
+            background: EVIL, padding: "14px 18px",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            flex: "1 1 100px",
+          }}>
+            <span style={{ fontSize: 18, fontWeight: 900, color: "#fff" }}>{p.name}</span>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  // Shared role card body content (used in role_reveal and modal)
+  function RoleCardBody() {
+    if (!me) return null
+    return (
+      <>
+        <div style={{ fontSize: 36, fontWeight: 900, color: teamColor, lineHeight: 1.1 }}>
+          {ROLE_LABEL[me.role] ?? me.role}
+        </div>
+        <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", color: teamColor, opacity: 0.75, marginTop: 6 }}>
+          {teamLabel}
+        </div>
+
+        {me.role === "merlin" && (
+          <div style={{ marginTop: 18 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: EVIL, marginBottom: 8 }}>
+              Evil Minions of Mordred
+            </div>
+            <KnownPlayers pList={evilPlayers} />
+            <div style={{ fontSize: 13, color: "rgba(232,220,200,0.55)", marginTop: 12, lineHeight: 1.6 }}>
+              You are the only good player who knows the identity of the evil Minions of Mordred.
+            </div>
+          </div>
+        )}
+
+        {me.team === "evil" && (
+          <div style={{ marginTop: 18 }}>
+            {evilOthers.length > 0 ? (
+              <>
+                <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: EVIL, marginBottom: 8 }}>
+                  Fellow Minions
+                </div>
+                <KnownPlayers pList={evilOthers} />
+                <div style={{ fontSize: 13, color: "rgba(232,220,200,0.55)", marginTop: 12, lineHeight: 1.6 }}>
+                  You all know each other's identities.
+                </div>
+              </>
+            ) : (
+              <div style={{ fontSize: 14, color: "rgba(232,220,200,0.5)", lineHeight: 1.5 }}>
+                You act alone.
+              </div>
+            )}
+            {me.role === "assassin" && (
+              <div style={{ fontSize: 13, color: "rgba(232,220,200,0.55)", marginTop: 12, lineHeight: 1.6 }}>
+                Your job is to try to determine Merlin's identity.
+              </div>
+            )}
+          </div>
+        )}
+
+        {me.team === "good" && me.role !== "merlin" && (
+          <div style={{ marginTop: 14, fontSize: 14, color: "rgba(232,220,200,0.5)", lineHeight: 1.5 }}>
+            You know nothing beyond your own allegiance.
+          </div>
+        )}
+      </>
+    )
+  }
+
   // ─── loading ──────────────────────────────────────────────────
 
   if (!game || !me) {
@@ -185,94 +300,24 @@ export default function Play({ params }) {
     )
   }
 
-  // ─── role_reveal ──────────────────────────────────────────────
+  // ─── phase content ────────────────────────────────────────────
 
-  if (game.phase === "role_reveal") {
-    const evilPlayers = players.filter(p => p.team === "evil")
-    const evilOthers  = evilPlayers.filter(p => p.id !== myId)
-    const amReady     = me.ready
-    const teamColor   = me.team === "good" ? GOOD : EVIL
-    const teamLabel   = me.team === "good" ? "Good" : "Evil — Minions of Mordred"
+  let phaseContent = null
 
-    let knownSection = null
-    if (me.role === "merlin") {
-      knownSection = (
-        <div style={{ marginTop: 18 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: EVIL, marginBottom: 8 }}>
-            Evil Minions of Mordred
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {evilPlayers.map(p => (
-              <div key={p.id} style={{ background: "rgba(170,34,34,0.15)", border: "1px solid rgba(170,34,34,0.3)", padding: "10px 14px" }}>
-                <span style={{ fontSize: 20, fontWeight: 900, color: TEXT }}>{p.name}</span>
-              </div>
-            ))}
-          </div>
-          <div style={{ fontSize: 13, color: "rgba(232,220,200,0.55)", marginTop: 10, lineHeight: 1.6 }}>
-            You are the only good player who knows the identity of the evil Minions of Mordred.
-          </div>
-        </div>
-      )
-    } else if (me.team === "evil") {
-      knownSection = evilOthers.length > 0 ? (
-        <div style={{ marginTop: 18 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: EVIL, marginBottom: 8 }}>
-            Fellow Minions
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {evilOthers.map(p => (
-              <div key={p.id} style={{ background: "rgba(170,34,34,0.15)", border: "1px solid rgba(170,34,34,0.3)", padding: "10px 14px" }}>
-                <span style={{ fontSize: 20, fontWeight: 900, color: TEXT }}>{p.name}</span>
-              </div>
-            ))}
-          </div>
-          <div style={{ fontSize: 13, color: "rgba(232,220,200,0.55)", marginTop: 10, lineHeight: 1.6 }}>
-            You all know each other's identities.
-          </div>
-        </div>
-      ) : (
-        <div style={{ marginTop: 14, fontSize: 14, color: "rgba(232,220,200,0.5)", lineHeight: 1.5 }}>
-          You act alone.
-        </div>
-      )
-    } else {
-      knownSection = (
-        <div style={{ marginTop: 14, fontSize: 14, color: "rgba(232,220,200,0.5)", lineHeight: 1.5 }}>
-          You know nothing beyond your own allegiance.
-        </div>
-      )
-    }
+  // ── role_reveal ──────────────────────────────────────────────
+  if (phase === "role_reveal") {
+    const amReady    = me.ready
+    const showCard   = cardPhase === "unset" || cardPhase === "shown" || cardPhase === "hiding"
 
     function handleReveal() { setCardPhase("shown") }
     function handleHide() {
       setCardPhase("hiding")
-      setTimeout(() => setCardPhase("mini"), 380)
+      setTimeout(() => setCardPhase("mini"), 350)
     }
-    function handleReopen() { setCardPhase("shown") }
 
-    const showFullCard = cardPhase === "unset" || cardPhase === "shown" || cardPhase === "hiding"
-
-    return (
-      <div style={{ minHeight: "100dvh", background: BG, color: TEXT, paddingBottom: 120 }}>
-        <style>{`
-          @keyframes avFlipIn {
-            0%   { transform: perspective(700px) rotateY(-80deg) scale(0.85); opacity: 0; }
-            100% { transform: perspective(700px) rotateY(0deg)   scale(1);    opacity: 1; }
-          }
-          @keyframes avFlipOut {
-            0%   { transform: perspective(700px) rotateY(0deg)  scale(1);    opacity: 1; }
-            100% { transform: perspective(700px) rotateY(80deg) scale(0.5);  opacity: 0; }
-          }
-          @keyframes avMiniIn {
-            0%   { transform: scale(0.6) translateY(12px); opacity: 0; }
-            100% { transform: scale(1)   translateY(0);    opacity: 1; }
-          }
-          .av-flip-in  { animation: avFlipIn  0.35s ease forwards; }
-          .av-flip-out { animation: avFlipOut 0.32s ease forwards; }
-          .av-mini-in  { animation: avMiniIn  0.28s ease 0.3s both; }
-        `}</style>
-
-        {/* Header — no quest track during role reveal */}
+    phaseContent = (
+      <div style={{ paddingBottom: 120 }}>
+        {/* Custom header — no quest track */}
         <div style={{ background: "rgba(0,0,0,0.35)", padding: "20px 24px 24px" }}>
           <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.18em", color: "rgba(232,220,200,0.35)" }}>
             Avalon · {code}
@@ -283,9 +328,8 @@ export default function Play({ params }) {
         </div>
 
         <div style={{ padding: "24px" }}>
-
-          {/* Role card — visible when not in mini state */}
-          {showFullCard && (
+          {/* Role card */}
+          {showCard && (
             <div
               className={cardPhase === "shown" ? "av-flip-in" : cardPhase === "hiding" ? "av-flip-out" : ""}
               style={{ background: CARD, padding: 24, marginBottom: 20 }}
@@ -294,13 +338,7 @@ export default function Play({ params }) {
                 <BigBtn label="Reveal My Role" onClick={handleReveal} />
               ) : (
                 <>
-                  <div style={{ fontSize: 36, fontWeight: 900, color: teamColor, lineHeight: 1.1 }}>
-                    {ROLE_LABEL[me.role] ?? me.role}
-                  </div>
-                  <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", color: teamColor, opacity: 0.75, marginTop: 6 }}>
-                    {teamLabel}
-                  </div>
-                  {knownSection}
+                  <RoleCardBody />
                   <button
                     onClick={handleHide}
                     style={{ background: "rgba(255,255,255,0.07)", color: TEXT, fontSize: 13, fontWeight: 700, padding: "10px 18px", marginTop: 22, display: "inline-block" }}
@@ -312,30 +350,13 @@ export default function Play({ params }) {
             </div>
           )}
 
-          {/* Mini card — fixed bottom-right */}
-          {cardPhase === "mini" && (
-            <div
-              className="av-mini-in"
-              onClick={handleReopen}
-              style={{
-                position: "fixed", bottom: 24, right: 24,
-                background: CARD, border: `2px solid ${teamColor}`,
-                padding: "14px 18px", cursor: "pointer", zIndex: 100,
-                boxShadow: "0 6px 24px rgba(0,0,0,0.6)",
-              }}
-            >
-              <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(232,220,200,0.4)" }}>My Role</div>
-              <div style={{ fontSize: 16, fontWeight: 900, color: teamColor, marginTop: 3 }}>{ROLE_LABEL[me.role] ?? me.role}</div>
-            </div>
-          )}
-
-          {/* Ready button */}
+          {/* Ready button — disabled until role has been viewed */}
           <div style={{ marginBottom: 20 }}>
             {!amReady ? (
               <BigBtn
                 label={acting ? "…" : "I'm ready to play"}
                 onClick={() => rpc("mark_avalon_ready", { p_code: code, p_player_id: myId })}
-                disabled={acting}
+                disabled={acting || cardPhase === "unset"}
               />
             ) : (
               <div style={{ background: "rgba(74,143,212,0.1)", border: `2px solid ${GOOD}`, padding: "16px 20px", textAlign: "center" }}>
@@ -365,15 +386,13 @@ export default function Play({ params }) {
               </div>
             ))}
           </div>
-
         </div>
       </div>
     )
   }
 
-  // ─── propose ─────────────────────────────────────────────────
-
-  if (game.phase === "propose") {
+  // ── propose ──────────────────────────────────────────────────
+  else if (phase === "propose") {
     const amLeader = me.id === game.leader_id
     const dblFail  = game.quest_number === 4 && (game.player_count ?? 5) >= 7
 
@@ -385,11 +404,10 @@ export default function Play({ params }) {
       )
     }
 
-    return (
-      <div style={{ minHeight: "100dvh", background: BG, color: TEXT, paddingBottom: 48 }}>
+    phaseContent = (
+      <div style={{ paddingBottom: 48 }}>
         <Header />
         <div style={{ padding: "20px 24px 0" }}>
-
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 30, fontWeight: 900, color: GOLD, lineHeight: 1, letterSpacing: "-1px" }}>
               Quest {game.quest_number}
@@ -410,8 +428,8 @@ export default function Play({ params }) {
             </div>
           )}
 
-          <div style={{ fontSize: 16, fontWeight: 700, color: amLeader ? GOLD : "rgba(232,220,200,0.55)", marginBottom: 10 }}>
-            {amLeader ? "Choose your team" : `${leader?.name ?? "?"} is choosing`}
+          <div style={{ fontSize: 17, fontWeight: 700, color: amLeader ? GOLD : "rgba(232,220,200,0.55)", marginBottom: 10 }}>
+            {amLeader ? "You're proposing a team" : `${leader?.name ?? "?"} is proposing a team`}
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 1, marginBottom: 16 }}>
@@ -436,15 +454,14 @@ export default function Play({ params }) {
     )
   }
 
-  // ─── vote ─────────────────────────────────────────────────────
-
-  if (game.phase === "vote") {
+  // ── vote ─────────────────────────────────────────────────────
+  else if (phase === "vote") {
     const amLeader = me.id === game.leader_id
-    return (
-      <div style={{ minHeight: "100dvh", background: BG, color: TEXT, paddingBottom: 48 }}>
+
+    phaseContent = (
+      <div style={{ paddingBottom: 48 }}>
         <Header sub={`Quest ${game.quest_number}`} />
         <div style={{ padding: "20px 24px" }}>
-
           <div style={{ fontSize: 28, fontWeight: 900, color: TEXT, marginBottom: 12 }}>
             Proposed Team
           </div>
@@ -463,27 +480,22 @@ export default function Play({ params }) {
           )}
 
           {amLeader ? (
-            <>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "rgba(232,220,200,0.6)", marginBottom: 14 }}>
-                A tied vote means the team is rejected.
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  onClick={() => rpc("resolve_avalon_vote", { p_code: code, p_approved: true })}
-                  disabled={acting}
-                  style={{ flex: 1, background: GOOD, color: "#fff", fontSize: 18, fontWeight: 900, padding: 18 }}
-                >
-                  Approved
-                </button>
-                <button
-                  onClick={() => rpc("resolve_avalon_vote", { p_code: code, p_approved: false })}
-                  disabled={acting}
-                  style={{ flex: 1, background: EVIL, color: "#fff", fontSize: 18, fontWeight: 900, padding: 18 }}
-                >
-                  Rejected
-                </button>
-              </div>
-            </>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => rpc("resolve_avalon_vote", { p_code: code, p_approved: true })}
+                disabled={acting}
+                style={{ flex: 1, background: GOOD, color: "#fff", fontSize: 18, fontWeight: 900, padding: 18 }}
+              >
+                Approved
+              </button>
+              <button
+                onClick={() => rpc("resolve_avalon_vote", { p_code: code, p_approved: false })}
+                disabled={acting}
+                style={{ flex: 1, background: EVIL, color: "#fff", fontSize: 18, fontWeight: 900, padding: 18 }}
+              >
+                Rejected <span style={{ fontWeight: 400, fontSize: 15 }}>or Tie</span>
+              </button>
+            </div>
           ) : (
             <div style={{ fontSize: 15, opacity: 0.55, paddingTop: 8 }}>
               Waiting for {leader?.name ?? "the leader"} to record the vote…
@@ -494,19 +506,17 @@ export default function Play({ params }) {
     )
   }
 
-  // ─── quest ────────────────────────────────────────────────────
-
-  if (game.phase === "mission") {
+  // ── quest ─────────────────────────────────────────────────────
+  else if (phase === "mission") {
     const onQuest   = (game.proposed_ids ?? []).includes(me.id)
     const submitted = proposed.filter(p => p.submitted_card).length
     const total     = proposed.length
     const myCard    = me.submitted_card
 
-    return (
-      <div style={{ minHeight: "100dvh", background: BG, color: TEXT, paddingBottom: 48 }}>
+    phaseContent = (
+      <div style={{ paddingBottom: 48 }}>
         <Header sub={`Quest ${game.quest_number}`} />
         <div style={{ padding: "20px 24px" }}>
-
           <div style={{ background: "rgba(74,143,212,0.1)", border: `1px solid rgba(74,143,212,0.3)`, padding: "14px 18px", marginBottom: 20, textAlign: "center" }}>
             <div style={{ fontSize: 19, fontWeight: 900, color: GOOD }}>Team approved!</div>
             <div style={{ fontSize: 14, fontWeight: 600, color: "rgba(232,220,200,0.6)", marginTop: 4 }}>Now time for the quest.</div>
@@ -575,35 +585,37 @@ export default function Play({ params }) {
     )
   }
 
-  // ─── result ───────────────────────────────────────────────────
-
-  if (game.phase === "result") {
-    const results    = game.quest_results ?? []
-    const lastResult = results[results.length - 1]
-    const goodWins   = results.filter(r => r === "success").length
-    const evilWins   = results.filter(r => r === "fail").length
-    const failCount  = proposed.filter(p => p.submitted_card === "fail").length
-    const succCount  = proposed.length - failCount
+  // ── result ───────────────────────────────────────────────────
+  else if (phase === "result") {
+    const results     = game.quest_results ?? []
+    const lastResult  = results[results.length - 1]
+    const goodWins    = results.filter(r => r === "success").length
+    const evilWins    = results.filter(r => r === "fail").length
+    const failCount   = proposed.filter(p => p.submitted_card === "fail").length
+    const succCount   = proposed.length - failCount
     const resultColor = lastResult === "success" ? GOOD : EVIL
 
     const nextLabel = goodWins >= 3
-      ? (acting ? "…" : "Unless…")
+      ? (acting ? "…" : "Good guys win! Unless…")
       : evilWins >= 3
         ? (acting ? "…" : "View Final Results →")
         : (acting ? "…" : "Next Quest →")
 
+    // Shuffle cards so fail position isn't predictable
     const voteCards = [
       ...Array(succCount).fill("succeed"),
       ...Array(failCount).fill("fail"),
-    ]
+    ].sort(() => Math.random() - 0.5)
 
-    return (
-      <div style={{ minHeight: "100dvh", background: BG, color: TEXT, paddingBottom: 48 }}>
+    const totalCards  = voteCards.length
+    const titleDelay  = totalCards * 0.13 + 0.15
+
+    phaseContent = (
+      <div style={{ paddingBottom: 48 }}>
         <Header />
         <div style={{ padding: "20px 24px" }}>
-
           {/* Score */}
-          <div style={{ textAlign: "center", marginBottom: 24 }}>
+          <div style={{ textAlign: "center", marginBottom: 28 }}>
             <div style={{ fontSize: 30, fontWeight: 900, letterSpacing: "-0.5px" }}>
               <span style={{ color: GOOD }}>Good: {goodWins}</span>
               <span style={{ color: "rgba(232,220,200,0.25)", margin: "0 10px" }}>·</span>
@@ -614,33 +626,30 @@ export default function Play({ params }) {
             </div>
           </div>
 
-          {/* Result banner */}
-          <div style={{
-            background: lastResult === "success" ? "rgba(74,143,212,0.12)" : "rgba(170,34,34,0.12)",
-            border: `2px solid ${resultColor}`,
-            padding: "24px 20px", marginBottom: 20, textAlign: "center",
-          }}>
-            <div style={{ fontSize: 38, fontWeight: 900, color: resultColor, lineHeight: 1.1 }}>
-              {lastResult === "success" ? "Quest Succeeded" : "Quest Failed"}
-            </div>
-          </div>
-
-          {/* Vote cards */}
-          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(232,220,200,0.35)", marginBottom: 10 }}>
-            Quest Cards
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 24 }}>
+          {/* Quest result cards — flip in one by one */}
+          <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", marginBottom: 28 }}>
             {voteCards.map((v, i) => (
               <div key={i} style={{
-                background: v === "succeed" ? "rgba(74,143,212,0.15)" : "rgba(170,34,34,0.15)",
-                border: `2px solid ${v === "succeed" ? GOOD : EVIL}`,
-                padding: "12px 18px", minWidth: 90, textAlign: "center",
+                width: 72, height: 108,
+                background: v === "succeed" ? GOOD : EVIL,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                flexShrink: 0,
+                animation: `cardFlipIn 0.18s ease ${i * 0.13}s both`,
               }}>
-                <div style={{ fontSize: 15, fontWeight: 900, color: v === "succeed" ? GOOD : EVIL }}>
+                <span style={{ fontSize: 14, fontWeight: 900, color: "#fff", textAlign: "center", padding: "0 4px" }}>
                   {v === "succeed" ? "Succeed" : "Fail"}
-                </div>
+                </span>
               </div>
             ))}
+          </div>
+
+          {/* Result title — reveals after cards */}
+          <div style={{
+            fontSize: 38, fontWeight: 900, color: resultColor, lineHeight: 1.1,
+            textAlign: "center", marginBottom: 28,
+            animation: `titleReveal 0.3s ease ${titleDelay}s both`,
+          }}>
+            {lastResult === "success" ? "Quest Succeeded" : "Quest Failed"}
           </div>
 
           <BigBtn
@@ -653,21 +662,15 @@ export default function Play({ params }) {
     )
   }
 
-  // ─── assassination ────────────────────────────────────────────
-
-  if (game.phase === "assassination") {
+  // ── assassination ────────────────────────────────────────────
+  else if (phase === "assassination") {
     const amAssassin  = me.role === "assassin"
     const goodPlayers = players.filter(p => p.team === "good")
 
-    return (
-      <div style={{ minHeight: "100dvh", background: BG, color: TEXT, paddingBottom: 48 }}>
+    phaseContent = (
+      <div style={{ paddingBottom: 48 }}>
         <Header sub="Assassination" showTrack={false} />
         <div style={{ padding: "20px 24px" }}>
-
-          <div style={{ background: "rgba(74,143,212,0.1)", border: `1px solid rgba(74,143,212,0.3)`, padding: "16px 20px", marginBottom: 20, textAlign: "center" }}>
-            <div style={{ fontSize: 20, fontWeight: 900, color: GOOD }}>Loyal Servants of King Arthur win!</div>
-          </div>
-
           {amAssassin ? (
             <>
               <div style={{ fontSize: 17, fontWeight: 700, lineHeight: 1.6, marginBottom: 20, color: "rgba(232,220,200,0.85)" }}>
@@ -719,38 +722,18 @@ export default function Play({ params }) {
     )
   }
 
-  // ─── finished ────────────────────────────────────────────────
-
-  if (game.phase === "finished") {
+  // ── finished ─────────────────────────────────────────────────
+  else if (phase === "finished") {
     const goodWon     = game.winning_team === "good"
     const winColor    = goodWon ? GOOD : EVIL
     const goodPlayers = players.filter(p => p.team === "good")
-    const evilPlayers = players.filter(p => p.team === "evil")
+    const evilPlayers2 = players.filter(p => p.team === "evil")
+    const allPlayers  = [...goodPlayers, ...evilPlayers2]
 
-    function RoleCard({ p }) {
-      const isGood = p.team === "good"
-      const color  = isGood ? GOOD : EVIL
-      return (
-        <div style={{
-          background: isGood ? "rgba(74,143,212,0.1)" : "rgba(170,34,34,0.1)",
-          border: `2px solid ${color}`,
-          padding: "16px 18px",
-          flex: "1 1 130px",
-        }}>
-          <div style={{ fontSize: 18, fontWeight: 900, color: TEXT }}>
-            {p.name}
-            {p.id === myId && <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.4 }}> you</span>}
-          </div>
-          <div style={{ fontSize: 13, fontWeight: 700, color, marginTop: 5 }}>{ROLE_LABEL[p.role] ?? p.role}</div>
-        </div>
-      )
-    }
-
-    return (
-      <div style={{ minHeight: "100dvh", background: BG, color: TEXT, paddingBottom: 48 }}>
+    phaseContent = (
+      <div style={{ paddingBottom: 48 }}>
         <Header sub="Game Over" showTrack={false} />
         <div style={{ padding: "20px 24px" }}>
-
           <div style={{
             background: goodWon ? "rgba(74,143,212,0.12)" : "rgba(170,34,34,0.12)",
             border: `2px solid ${winColor}`,
@@ -760,22 +743,46 @@ export default function Play({ params }) {
               {goodWon ? "Good" : "Evil"} wins
             </div>
             <div style={{ fontSize: 34, fontWeight: 900, color: winColor, lineHeight: 1.2 }}>
-              {goodWon ? "Long Live King Arthur." : "Evil Triumphs"}
+              {goodWon ? "Long Live King Arthur." : "Mordred Eats King Arthur"}
             </div>
           </div>
 
           <div style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: GOOD, marginBottom: 10 }}>
             Loyal Servants of King Arthur
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 24 }}>
-            {goodPlayers.map(p => <RoleCard key={p.id} p={p} />)}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24 }}>
+            {goodPlayers.map((p, i) => (
+              <div key={p.id} style={{
+                width: 72, height: 108,
+                background: GOOD,
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                padding: "10px 8px", textAlign: "center",
+                animation: `cardFlipIn 0.18s ease ${i * 0.1}s both`,
+              }}>
+                <div style={{ fontSize: 14, fontWeight: 900, color: "#fff", lineHeight: 1.2 }}>{p.name}</div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.65)", marginTop: 5, lineHeight: 1.3 }}>{ROLE_LABEL[p.role] ?? p.role}</div>
+                {p.id === myId && <div style={{ fontSize: 9, color: "rgba(255,255,255,0.4)", marginTop: 3 }}>you</div>}
+              </div>
+            ))}
           </div>
 
           <div style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: EVIL, marginBottom: 10 }}>
             Minions of Mordred
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 28 }}>
-            {evilPlayers.map(p => <RoleCard key={p.id} p={p} />)}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 28 }}>
+            {evilPlayers2.map((p, i) => (
+              <div key={p.id} style={{
+                width: 72, height: 108,
+                background: EVIL,
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                padding: "10px 8px", textAlign: "center",
+                animation: `cardFlipIn 0.18s ease ${(goodPlayers.length + i) * 0.1}s both`,
+              }}>
+                <div style={{ fontSize: 14, fontWeight: 900, color: "#fff", lineHeight: 1.2 }}>{p.name}</div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.65)", marginTop: 5, lineHeight: 1.3 }}>{ROLE_LABEL[p.role] ?? p.role}</div>
+                {p.id === myId && <div style={{ fontSize: 9, color: "rgba(255,255,255,0.4)", marginTop: 3 }}>you</div>}
+              </div>
+            ))}
           </div>
 
           <BigBtn
@@ -799,9 +806,48 @@ export default function Play({ params }) {
     )
   }
 
+  // ─── main render ──────────────────────────────────────────────
+
   return (
-    <div style={{ minHeight: "100dvh", background: BG, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <p style={{ color: "rgba(232,220,200,0.4)", fontSize: 18, fontWeight: 700 }}>Loading…</p>
+    <div style={{ minHeight: "100dvh", background: BG, color: TEXT }}>
+      <style>{STYLES}</style>
+
+      {/* Global mini role card — visible on all phases after role has been seen */}
+      {showMiniCard && (
+        <div
+          className="av-mini-in"
+          onClick={handleMiniCardTap}
+          style={{
+            position: "fixed", bottom: 24, right: 24,
+            background: CARD, border: `2px solid ${teamColor}`,
+            padding: "12px 16px", cursor: "pointer", zIndex: 100,
+            boxShadow: "0 6px 24px rgba(0,0,0,0.6)",
+          }}
+        >
+          <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(232,220,200,0.4)" }}>My Role</div>
+        </div>
+      )}
+
+      {/* Role modal overlay — tapping mini card outside role_reveal */}
+      {roleModalOpen && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(15,25,35,0.97)", overflowY: "auto", padding: 24 }}>
+          <div style={{ background: CARD, padding: 24, marginBottom: 16 }}>
+            <RoleCardBody />
+          </div>
+          <button
+            onClick={() => setRoleModalOpen(false)}
+            style={{ background: "rgba(255,255,255,0.07)", color: TEXT, fontSize: 16, fontWeight: 700, padding: "14px 24px", width: "100%", display: "block" }}
+          >
+            Close
+          </button>
+        </div>
+      )}
+
+      {phaseContent ?? (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100dvh" }}>
+          <p style={{ color: "rgba(232,220,200,0.4)", fontSize: 18, fontWeight: 700 }}>Loading…</p>
+        </div>
+      )}
     </div>
   )
 }
