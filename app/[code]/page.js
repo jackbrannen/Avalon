@@ -13,6 +13,15 @@ const EVIL   = "#AA2222"
 const TEAL   = "#12BAAA"
 
 const MIN_PLAYERS = 5
+
+const WORDS_A = ["AMBER","CEDAR","CRIMSON","DAGGER","EMBER","FALCON","GLACIER","HARBOR","INDIGO","JASPER","KODIAK","LANTERN","MARBLE","NEBULA","ONYX","PHANTOM","QUARTZ","RAVEN","SILVER","TOPAZ"]
+
+function splitCode(code) {
+  for (const w of WORDS_A) {
+    if (code.startsWith(w)) return [w, code.slice(w.length)]
+  }
+  return [code, ""]
+}
 const MAX_PLAYERS = 10
 
 function loadProfile() {
@@ -189,8 +198,8 @@ export default function Lobby({ params }) {
           <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.18em", opacity: 0.45, marginBottom: 4 }}>
             Avalon
           </div>
-          <div style={{ fontSize: "clamp(18px, 6vw, 38px)", fontWeight: 900, letterSpacing: "-1px", lineHeight: 1, color: GOLD }}>
-            {code}
+          <div style={{ fontSize: "clamp(18px, 6vw, 38px)", fontWeight: 900, letterSpacing: "-1px", lineHeight: 1 }}>
+            {(() => { const [w1, w2] = splitCode(code); return <><span style={{ color: GOLD }}>{w1}</span><span style={{ color: TEXT }}>{w2}</span></> })()}
           </div>
         </div>
         <button

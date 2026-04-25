@@ -33,6 +33,16 @@ const ROLE_LABEL = {
   minion:   "Minion of Mordred",
 }
 
+// Used to split two-word room codes into their component words for display
+const WORDS_A = ["AMBER","CEDAR","CRIMSON","DAGGER","EMBER","FALCON","GLACIER","HARBOR","INDIGO","JASPER","KODIAK","LANTERN","MARBLE","NEBULA","ONYX","PHANTOM","QUARTZ","RAVEN","SILVER","TOPAZ"]
+
+function splitCode(code) {
+  for (const w of WORDS_A) {
+    if (code.startsWith(w)) return [w, code.slice(w.length)]
+  }
+  return [code, ""]
+}
+
 const STYLES = `
   @keyframes avFlipIn {
     0%   { transform: perspective(700px) rotateY(-80deg) scale(0.85); opacity: 0; }
@@ -179,7 +189,7 @@ export default function Play({ params }) {
   const questSize = sizes[(game?.quest_number ?? 1) - 1]
   const proposed  = players.filter(p => (game?.proposed_ids ?? []).includes(p.id))
 
-  // Quest score — computed once at top level, used in persistent overlay + result phase
+  // Quest score — computed once at top level
   const allResults = game?.quest_results ?? []
   const goodWins   = allResults.filter(r => r === "success").length
   const evilWins   = allResults.filter(r => r === "fail").length
@@ -197,7 +207,7 @@ export default function Play({ params }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, resultSuccCount, resultFailCount])
 
-  // Role info — computed once, reused in card and modal
+  // Role info
   const evilPlayers = players.filter(p => p.team === "evil")
   const evilOthers  = evilPlayers.filter(p => p.id !== myId)
   const teamColor   = me ? (me.team === "good" ? GOOD : EVIL) : GOLD
@@ -207,8 +217,8 @@ export default function Play({ params }) {
   const hasSeenRole  = cardPhase !== "unset"
   const showMiniCard = !!me && hasSeenRole && (phase !== "role_reveal" || cardPhase === "mini")
 
-  // Persistent score: show during active quest phases
-  const showScore = ["propose", "vote", "mission", "result", "assassination"].includes(phase)
+  // Score menu bar: show during active quest phases
+  const showMenuBar = ["propose", "vote", "mission", "result", "assassination"].includes(phase)
 
   function handleMiniCardTap() {
     if (phase === "role_reveal") setCardPhase("shown")
@@ -229,7 +239,7 @@ export default function Play({ params }) {
     const results = game.quest_results ?? []
     return (
       <div>
-        <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.18em", color: "rgba(232,220,200,0.35)", textAlign: "center", paddingTop: 14, paddingBottom: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.18em", color: "rgba(232,220,200,0.35)", textAlign: "center", paddingTop: 14, paddingBottom: 6 }}>
           Quests
         </div>
         <div style={{ display: "flex", gap: 8, justifyContent: "center", padding: "0 24px 18px" }}>
@@ -245,7 +255,7 @@ export default function Play({ params }) {
               <div key={i} style={{ flex: 1, maxWidth: 60, display: "flex", flexDirection: "column", alignItems: "center" }}>
                 <div style={{ width: "100%", aspectRatio: "1", borderRadius: "50%", background: bg, border, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
                   <span style={{ fontSize: 16, fontWeight: 900, color: col, lineHeight: 1 }}>{sz}</span>
-                  {dbl && <span style={{ fontSize: 9, fontWeight: 800, color: col, marginTop: 1 }}>†</span>}
+                  {dbl && <span style={{ fontSize: 13, fontWeight: 800, color: col, marginTop: 1 }}>†</span>}
                 </div>
                 <span style={{ fontSize: 14, fontWeight: 700, color: "rgba(232,220,200,0.4)", marginTop: 5 }}>{qn}</span>
               </div>
@@ -259,13 +269,12 @@ export default function Play({ params }) {
   function Header({ sub, showTrack = true }) {
     return (
       <div style={{ background: "rgba(0,0,0,0.35)" }}>
-        <div style={{ padding: "20px 24px 0" }}>
-          <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.18em", color: "rgba(232,220,200,0.35)" }}>
-            Avalon · {code}
+        {sub && (
+          <div style={{ padding: "14px 24px 0" }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: GOLD }}>{sub}</div>
           </div>
-          {sub && <div style={{ fontSize: 14, fontWeight: 800, color: GOLD, marginTop: 4 }}>{sub}</div>}
-        </div>
-        {showTrack ? <QuestTrack /> : <div style={{ paddingBottom: 16 }} />}
+        )}
+        {showTrack ? <QuestTrack /> : sub ? <div style={{ paddingBottom: 16 }} /> : null}
       </div>
     )
   }
@@ -284,13 +293,13 @@ export default function Play({ params }) {
       >
         {highlight !== undefined && (
           <div style={{ width: 22, height: 22, borderRadius: "50%", background: highlight ? GOLD : "rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            {highlight && <span style={{ fontSize: 11, fontWeight: 900, color: "#000" }}>✓</span>}
+            {highlight && <span style={{ fontSize: 13, fontWeight: 900, color: "#000" }}>✓</span>}
           </div>
         )}
         <span style={{ fontSize: 16, fontWeight: 700, flex: 1 }}>
           {p.name}
-          {p.id === myId            && <span style={{ opacity: 0.4, fontSize: 11, fontWeight: 600 }}> you</span>}
-          {p.id === game?.leader_id && <span style={{ opacity: 0.45, fontSize: 11, fontWeight: 600 }}> ♛</span>}
+          {p.id === myId            && <span style={{ opacity: 0.4, fontSize: 13, fontWeight: 600 }}> you</span>}
+          {p.id === game?.leader_id && <span style={{ opacity: 0.45, fontSize: 13, fontWeight: 600 }}> ♛</span>}
         </span>
       </div>
     )
@@ -315,13 +324,14 @@ export default function Play({ params }) {
   // Role card content (shared between role reveal card and modal)
   function RoleCardBody() {
     if (!me) return null
+    const roleSubtitle = me.role === "merlin" ? "Good — Loyal Servant of King Arthur" : teamLabel
     return (
       <>
         <div style={{ fontSize: 36, fontWeight: 900, color: teamColor, lineHeight: 1.1 }}>
           {ROLE_LABEL[me.role] ?? me.role}
         </div>
         <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", color: teamColor, opacity: 0.75, marginTop: 6 }}>
-          {teamLabel}
+          {roleSubtitle}
         </div>
 
         {me.role === "merlin" && (
@@ -366,7 +376,7 @@ export default function Play({ params }) {
               </div>
             )}
             {me.role === "assassin" && (
-              <div style={{ fontSize: 13, color: "rgba(232,220,200,0.55)", marginTop: 12, lineHeight: 1.6 }}>
+              <div style={{ fontSize: 13, fontWeight: 900, color: EVIL, marginTop: 12, lineHeight: 1.6 }}>
                 Your job is to try to determine Merlin's identity.
               </div>
             )}
@@ -410,10 +420,7 @@ export default function Play({ params }) {
     phaseContent = (
       <div style={{ paddingBottom: 120 }}>
         <div style={{ background: "rgba(0,0,0,0.35)", padding: "20px 24px 24px" }}>
-          <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.18em", color: "rgba(232,220,200,0.35)" }}>
-            Avalon · {code}
-          </div>
-          <div style={{ fontSize: 40, fontWeight: 900, color: GOLD, marginTop: 8, letterSpacing: "-1.5px", lineHeight: 1 }}>
+          <div style={{ fontSize: 40, fontWeight: 900, color: GOLD, letterSpacing: "-1.5px", lineHeight: 1 }}>
             Role Reveal
           </div>
         </div>
@@ -455,18 +462,18 @@ export default function Play({ params }) {
             )}
           </div>
 
-          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(232,220,200,0.35)", marginBottom: 10 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(232,220,200,0.35)", marginBottom: 10 }}>
             Players
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
             {players.map(p => (
               <div key={p.id} style={{ background: CARD, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ width: 22, height: 22, borderRadius: "50%", flexShrink: 0, background: p.ready ? GOOD : "rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  {p.ready && <span style={{ fontSize: 11, fontWeight: 900, color: "#fff" }}>✓</span>}
+                  {p.ready && <span style={{ fontSize: 13, fontWeight: 900, color: "#fff" }}>✓</span>}
                 </div>
                 <span style={{ fontSize: 16, fontWeight: 700, flex: 1 }}>
                   {p.name}
-                  {p.id === myId && <span style={{ opacity: 0.4, fontSize: 11 }}> you</span>}
+                  {p.id === myId && <span style={{ opacity: 0.4, fontSize: 13 }}> you</span>}
                 </span>
                 <span style={{ fontSize: 13, fontWeight: 700, color: p.ready ? GOOD : "rgba(232,220,200,0.3)" }}>
                   {p.ready ? "Ready" : "Not ready"}
@@ -494,13 +501,7 @@ export default function Play({ params }) {
 
     phaseContent = (
       <div style={{ paddingBottom: 48 }}>
-        {/* Header with quest track + centered quest info on dark bg */}
         <div style={{ background: "rgba(0,0,0,0.35)" }}>
-          <div style={{ padding: "20px 24px 0" }}>
-            <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.18em", color: "rgba(232,220,200,0.35)" }}>
-              Avalon · {code}
-            </div>
-          </div>
           <QuestTrack />
           <div style={{ padding: "0 24px 20px", textAlign: "center" }}>
             <div style={{ fontSize: 32, fontWeight: 900, color: GOLD, lineHeight: 1, letterSpacing: "-1px" }}>
@@ -510,7 +511,7 @@ export default function Play({ params }) {
               {questSize} players needed
             </div>
             {dblFail && (
-              <div style={{ fontSize: 14, color: "rgba(232,220,200,0.45)", marginTop: 4, lineHeight: 1.5 }}>
+              <div style={{ fontSize: 13, color: "rgba(232,220,200,0.45)", marginTop: 4, lineHeight: 1.5 }}>
                 This quest only fails if there are two fail votes.
               </div>
             )}
@@ -622,7 +623,7 @@ export default function Play({ params }) {
             <div style={{ fontSize: 14, fontWeight: 600, color: "rgba(232,220,200,0.6)", marginTop: 4 }}>Now time for the quest.</div>
           </div>
 
-          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(232,220,200,0.35)", marginBottom: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(232,220,200,0.35)", marginBottom: 8 }}>
             On this quest ({submitted}/{total} submitted)
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 1, marginBottom: 24 }}>
@@ -631,9 +632,9 @@ export default function Play({ params }) {
                 <div style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0, background: p.submitted_card ? TEAL : "rgba(255,255,255,0.18)" }} />
                 <span style={{ fontSize: 16, fontWeight: 700, flex: 1 }}>
                   {p.name}
-                  {p.id === myId && <span style={{ opacity: 0.4, fontSize: 11 }}> you</span>}
+                  {p.id === myId && <span style={{ opacity: 0.4, fontSize: 13 }}> you</span>}
                 </span>
-                {p.submitted_card && <span style={{ fontSize: 11, color: TEAL, fontWeight: 700 }}>✓</span>}
+                {p.submitted_card && <span style={{ fontSize: 13, color: TEAL, fontWeight: 700 }}>✓</span>}
               </div>
             ))}
           </div>
@@ -704,7 +705,6 @@ export default function Play({ params }) {
         <Header />
         <div style={{ padding: "20px 24px" }}>
 
-          {/* Quest result cards + title */}
           <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", marginBottom: 24 }}>
             {voteCards.map((v, i) => (
               <PlayingCard
@@ -735,6 +735,18 @@ export default function Play({ params }) {
             onClick={() => rpc("advance_avalon_quest", { p_code: code })}
             disabled={acting}
           />
+
+          {/* Score below button */}
+          <div style={{ textAlign: "center", marginTop: 28 }}>
+            <div style={{ fontSize: 28, fontWeight: 900 }}>
+              <span style={{ color: GOOD }}>Loyal Servants: {goodWins}</span>
+              <span style={{ color: "rgba(232,220,200,0.25)", margin: "0 12px" }}>·</span>
+              <span style={{ color: EVIL }}>Evil Minions: {evilWins}</span>
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(232,220,200,0.4)", marginTop: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+              First to three wins
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -768,11 +780,11 @@ export default function Play({ params }) {
                     }}
                   >
                     <div style={{ width: 22, height: 22, borderRadius: "50%", background: target === p.id ? EVIL : "rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      {target === p.id && <span style={{ fontSize: 11, color: "#fff", fontWeight: 900 }}>✗</span>}
+                      {target === p.id && <span style={{ fontSize: 13, color: "#fff", fontWeight: 900 }}>✗</span>}
                     </div>
                     <span style={{ fontSize: 16, fontWeight: 700 }}>
                       {p.name}
-                      {p.id === myId && <span style={{ opacity: 0.4, fontSize: 11 }}> you</span>}
+                      {p.id === myId && <span style={{ opacity: 0.4, fontSize: 13 }}> you</span>}
                     </span>
                   </div>
                 ))}
@@ -824,7 +836,7 @@ export default function Play({ params }) {
             </div>
           </div>
 
-          <div style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: GOOD, marginBottom: 12, textAlign: "center" }}>
+          <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: GOOD, marginBottom: 12, textAlign: "center" }}>
             Loyal Servants of King Arthur
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center", marginBottom: 28 }}>
@@ -837,15 +849,15 @@ export default function Play({ params }) {
                 frontContent={
                   <>
                     <div style={{ fontSize: 16, fontWeight: 900, color: "#fff", lineHeight: 1.2, wordBreak: "break-word" }}>{p.name}</div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.65)", marginTop: 6, lineHeight: 1.3 }}>{ROLE_LABEL[p.role] ?? p.role}</div>
-                    {p.id === myId && <div style={{ fontSize: 9, color: "rgba(255,255,255,0.4)", marginTop: 4 }}>you</div>}
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.65)", marginTop: 6, lineHeight: 1.3 }}>{ROLE_LABEL[p.role] ?? p.role}</div>
+                    {p.id === myId && <div style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", marginTop: 4 }}>you</div>}
                   </>
                 }
               />
             ))}
           </div>
 
-          <div style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: EVIL, marginBottom: 12, textAlign: "center" }}>
+          <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: EVIL, marginBottom: 12, textAlign: "center" }}>
             Minions of Mordred
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center", marginBottom: 28 }}>
@@ -858,8 +870,8 @@ export default function Play({ params }) {
                 frontContent={
                   <>
                     <div style={{ fontSize: 16, fontWeight: 900, color: "#fff", lineHeight: 1.2, wordBreak: "break-word" }}>{p.name}</div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.65)", marginTop: 6, lineHeight: 1.3 }}>{ROLE_LABEL[p.role] ?? p.role}</div>
-                    {p.id === myId && <div style={{ fontSize: 9, color: "rgba(255,255,255,0.4)", marginTop: 4 }}>you</div>}
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.65)", marginTop: 6, lineHeight: 1.3 }}>{ROLE_LABEL[p.role] ?? p.role}</div>
+                    {p.id === myId && <div style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", marginTop: 4 }}>you</div>}
                   </>
                 }
               />
@@ -889,22 +901,29 @@ export default function Play({ params }) {
 
   // ─── main render ──────────────────────────────────────────────
 
+  const [codeWord1, codeWord2] = splitCode(code)
+
   return (
     <div style={{ minHeight: "100dvh", background: BG, color: TEXT }}>
       <style>{STYLES}</style>
 
-      {/* Persistent score — top right, visible during active quest phases */}
-      {showScore && (
-        <div style={{
-          position: "fixed", top: 16, right: 16, zIndex: 50,
-          background: "rgba(15,25,35,0.92)", borderRadius: 6,
-          padding: "7px 12px",
-          display: "flex", gap: 8, alignItems: "center",
-          boxShadow: "0 2px 12px rgba(0,0,0,0.5)",
-        }}>
-          <span style={{ color: GOOD, fontSize: 15, fontWeight: 900 }}>Loyal Servants: {goodWins}</span>
-          <span style={{ color: "rgba(232,220,200,0.25)", fontSize: 13 }}>·</span>
-          <span style={{ color: EVIL, fontSize: 15, fontWeight: 900 }}>Evil Minions: {evilWins}</span>
+      {/* Score menu bar — matches other games' top bar style */}
+      {showMenuBar && (
+        <div style={{ background: "rgba(0,0,0,0.35)", padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: GOOD, opacity: 0.7, marginBottom: 2 }}>Loyal Servants</div>
+              <div style={{ fontSize: 28, fontWeight: 900, lineHeight: 1, color: GOOD }}>{goodWins}</div>
+            </div>
+            <div style={{ fontSize: 18, color: "rgba(232,220,200,0.2)", fontWeight: 300 }}>–</div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: EVIL, opacity: 0.7, marginBottom: 2 }}>Evil Minions</div>
+              <div style={{ fontSize: 28, fontWeight: 900, lineHeight: 1, color: EVIL }}>{evilWins}</div>
+            </div>
+          </div>
+          <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: "-0.5px", flexShrink: 0 }}>
+            <span style={{ color: GOLD }}>{codeWord1}</span><span style={{ color: TEXT }}>{codeWord2}</span>
+          </div>
         </div>
       )}
 
@@ -920,7 +939,7 @@ export default function Play({ params }) {
             boxShadow: "0 6px 24px rgba(0,0,0,0.6)", borderRadius: 4,
           }}
         >
-          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(232,220,200,0.5)" }}>My Role</div>
+          <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(232,220,200,0.5)" }}>My Role</div>
         </div>
       )}
 
