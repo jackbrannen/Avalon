@@ -251,11 +251,7 @@ export default function Lobby({ params }) {
             </button>
             {joinError && <p style={{ marginTop: 10, fontSize: 14, fontWeight: 700, color: GOLD }}>{joinError}</p>}
           </>
-        ) : (
-          <div style={{ padding: "12px 0", fontSize: 16, opacity: 0.6 }}>
-            Waiting for the host to start…
-          </div>
-        )}
+        ) : null}
       </div>
 
       {/* Players */}

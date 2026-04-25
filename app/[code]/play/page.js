@@ -4,13 +4,16 @@ import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../../../lib/supabase"
 
-const BG   = "#0F1923"
-const CARD = "#1C2B3A"
-const GOLD = "#C9A84C"
-const TEXT = "#E8DCC8"
-const GOOD = "#4A8FD4"
-const EVIL = "#AA2222"
-const TEAL = "#12BAAA"
+const BG        = "#0F1923"
+const CARD      = "#1C2B3A"
+const GOLD      = "#C9A84C"
+const TEXT      = "#E8DCC8"
+const GOOD      = "#4A8FD4"
+const EVIL      = "#AA2222"
+const TEAL      = "#12BAAA"
+const CARD_BACK = "#243040"
+const CARD_W    = 90
+const CARD_H    = 135
 
 const QUEST_SIZES = {
   5:  [2,3,2,3,3],
@@ -41,31 +44,86 @@ const STYLES = `
     0%   { transform: scale(0.6) translateY(12px); opacity: 0; }
     100% { transform: scale(1)   translateY(0);    opacity: 1; }
   }
-  @keyframes cardFlipIn {
-    from { transform: perspective(400px) rotateY(90deg); opacity: 0; }
-    to   { transform: perspective(400px) rotateY(0deg);  opacity: 1; }
+  @keyframes cardFlip180 {
+    0%   { transform: perspective(600px) rotateY(180deg); }
+    100% { transform: perspective(600px) rotateY(0deg); }
   }
   @keyframes titleReveal {
     from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }
   }
-  .av-flip-in   { animation: avFlipIn  0.35s ease forwards; }
-  .av-flip-out  { animation: avFlipOut 0.32s ease forwards; }
-  .av-mini-in   { animation: avMiniIn  0.28s ease both; }
+  .av-flip-in  { animation: avFlipIn  0.35s ease forwards; }
+  .av-flip-out { animation: avFlipOut 0.32s ease forwards; }
+  .av-mini-in  { animation: avMiniIn  0.28s ease both; }
 `
+
+// Playing card with 180° flip reveal. animate=false → stays face-down; animate=true → flips in.
+function PlayingCard({ frontBg, frontContent, delay = 0, animate }) {
+  return (
+    <div style={{
+      width: CARD_W, height: CARD_H,
+      position: "relative",
+      transformStyle: "preserve-3d",
+      flexShrink: 0,
+      transform: animate ? undefined : "perspective(600px) rotateY(180deg)",
+      animation: animate ? `cardFlip180 0.52s ease ${delay}s both` : "none",
+    }}>
+      {/* Front */}
+      <div style={{
+        position: "absolute", inset: 0,
+        backfaceVisibility: "hidden",
+        background: frontBg, borderRadius: 10,
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
+        padding: "12px 8px", textAlign: "center", overflow: "hidden",
+      }}>
+        {frontContent}
+      </div>
+      {/* Back */}
+      <div style={{
+        position: "absolute", inset: 0,
+        backfaceVisibility: "hidden",
+        transform: "rotateY(180deg)",
+        background: CARD_BACK, borderRadius: 10,
+        border: "2px solid rgba(255,255,255,0.08)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 32, color: "rgba(255,255,255,0.2)",
+      }}>
+        ?
+      </div>
+    </div>
+  )
+}
+
+// Static playing card (same design, shown immediately — no flip)
+function StaticCard({ bg, children }) {
+  return (
+    <div style={{
+      width: CARD_W, height: CARD_H,
+      background: bg, borderRadius: 10,
+      display: "flex", flexDirection: "column",
+      alignItems: "center", justifyContent: "center",
+      padding: "12px 8px", textAlign: "center",
+      overflow: "hidden", flexShrink: 0,
+    }}>
+      {children}
+    </div>
+  )
+}
 
 export default function Play({ params }) {
   const code   = useMemo(() => params.code.toUpperCase(), [params.code])
   const router = useRouter()
 
-  const [game, setGame]           = useState(null)
-  const [players, setPlayers]     = useState([])
-  const [myId, setMyId]           = useState(null)
-  const [selected, setSelected]   = useState([])
-  const [target, setTarget]       = useState(null)
-  const [cardPhase, setCardPhase] = useState("unset") // persists across phase changes
+  const [game, setGame]                 = useState(null)
+  const [players, setPlayers]           = useState([])
+  const [myId, setMyId]                 = useState(null)
+  const [selected, setSelected]         = useState([])
+  const [target, setTarget]             = useState(null)
+  const [cardPhase, setCardPhase]       = useState("unset")
   const [roleModalOpen, setRoleModalOpen] = useState(false)
-  const [acting, setActing]       = useState(false)
+  const [acting, setActing]             = useState(false)
+  const [animReady, setAnimReady]       = useState(false)
 
   useEffect(() => {
     const id = localStorage.getItem(`avalon:${code}:playerId`)
@@ -88,14 +146,30 @@ export default function Play({ params }) {
     return () => clearInterval(t)
   }, [code])
 
+  // Redirect to lobby if game resets (Play Again)
+  useEffect(() => {
+    if (game?.phase === "lobby") router.replace(`/${code}`)
+  }, [game?.phase])
+
   const phase = game?.phase
   useEffect(() => {
     setSelected([])
     setTarget(null)
     setActing(false)
     setRoleModalOpen(false)
-    // cardPhase intentionally NOT reset — persists across phases
+    setAnimReady(false)
+    if (phase === "role_reveal") setCardPhase("unset") // reset for each new game
   }, [phase])
+
+  // Synchronized card reveal: wait for server-set reveal_at timestamp
+  useEffect(() => {
+    if (phase !== "result") { setAnimReady(false); return }
+    const revealAt = game?.reveal_at ? new Date(game.reveal_at).getTime() : Date.now()
+    const delay = revealAt - Date.now()
+    if (delay <= 0) { setAnimReady(true); return }
+    const t = setTimeout(() => setAnimReady(true), delay)
+    return () => clearTimeout(t)
+  }, [phase, game?.reveal_at])
 
   const me        = players.find(p => p.id === myId)
   const leader    = players.find(p => p.id === game?.leader_id)
@@ -103,13 +177,13 @@ export default function Play({ params }) {
   const questSize = sizes[(game?.quest_number ?? 1) - 1]
   const proposed  = players.filter(p => (game?.proposed_ids ?? []).includes(p.id))
 
-  // Role info — computed once, reused in role card and modal
+  // Role info — computed once, reused in card and modal
   const evilPlayers = players.filter(p => p.team === "evil")
   const evilOthers  = evilPlayers.filter(p => p.id !== myId)
   const teamColor   = me ? (me.team === "good" ? GOOD : EVIL) : GOLD
   const teamLabel   = me?.team === "good" ? "Good" : "Evil — Minions of Mordred"
 
-  // Mini card visibility: show on all phases once role has been seen
+  // Mini card: visible on all phases after role has been seen
   const hasSeenRole = cardPhase !== "unset"
   const showMiniCard = !!me && hasSeenRole && (phase !== "role_reveal" || cardPhase === "mini")
 
@@ -215,24 +289,7 @@ export default function Play({ params }) {
     )
   }
 
-  // Known-player cards on role card (Merlin's evil list, Fellow Minions)
-  function KnownPlayers({ pList }) {
-    return (
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
-        {pList.map(p => (
-          <div key={p.id} style={{
-            background: EVIL, padding: "14px 18px",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            flex: "1 1 100px",
-          }}>
-            <span style={{ fontSize: 18, fontWeight: 900, color: "#fff" }}>{p.name}</span>
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  // Shared role card body content (used in role_reveal and modal)
+  // Role card content (shared between role reveal card and modal)
   function RoleCardBody() {
     if (!me) return null
     return (
@@ -246,10 +303,16 @@ export default function Play({ params }) {
 
         {me.role === "merlin" && (
           <div style={{ marginTop: 18 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: EVIL, marginBottom: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: EVIL, marginBottom: 10 }}>
               Evil Minions of Mordred
             </div>
-            <KnownPlayers pList={evilPlayers} />
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+              {evilPlayers.map(p => (
+                <StaticCard key={p.id} bg={EVIL}>
+                  <span style={{ fontSize: 16, fontWeight: 900, color: "#fff", wordBreak: "break-word" }}>{p.name}</span>
+                </StaticCard>
+              ))}
+            </div>
             <div style={{ fontSize: 13, color: "rgba(232,220,200,0.55)", marginTop: 12, lineHeight: 1.6 }}>
               You are the only good player who knows the identity of the evil Minions of Mordred.
             </div>
@@ -260,10 +323,16 @@ export default function Play({ params }) {
           <div style={{ marginTop: 18 }}>
             {evilOthers.length > 0 ? (
               <>
-                <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: EVIL, marginBottom: 8 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: EVIL, marginBottom: 10 }}>
                   Fellow Minions
                 </div>
-                <KnownPlayers pList={evilOthers} />
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+                  {evilOthers.map(p => (
+                    <StaticCard key={p.id} bg={EVIL}>
+                      <span style={{ fontSize: 16, fontWeight: 900, color: "#fff", wordBreak: "break-word" }}>{p.name}</span>
+                    </StaticCard>
+                  ))}
+                </div>
                 <div style={{ fontSize: 13, color: "rgba(232,220,200,0.55)", marginTop: 12, lineHeight: 1.6 }}>
                   You all know each other's identities.
                 </div>
@@ -306,8 +375,8 @@ export default function Play({ params }) {
 
   // ── role_reveal ──────────────────────────────────────────────
   if (phase === "role_reveal") {
-    const amReady    = me.ready
-    const showCard   = cardPhase === "unset" || cardPhase === "shown" || cardPhase === "hiding"
+    const amReady  = me.ready
+    const showCard = cardPhase === "unset" || cardPhase === "shown" || cardPhase === "hiding"
 
     function handleReveal() { setCardPhase("shown") }
     function handleHide() {
@@ -317,7 +386,6 @@ export default function Play({ params }) {
 
     phaseContent = (
       <div style={{ paddingBottom: 120 }}>
-        {/* Custom header — no quest track */}
         <div style={{ background: "rgba(0,0,0,0.35)", padding: "20px 24px 24px" }}>
           <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.18em", color: "rgba(232,220,200,0.35)" }}>
             Avalon · {code}
@@ -328,7 +396,6 @@ export default function Play({ params }) {
         </div>
 
         <div style={{ padding: "24px" }}>
-          {/* Role card */}
           {showCard && (
             <div
               className={cardPhase === "shown" ? "av-flip-in" : cardPhase === "hiding" ? "av-flip-out" : ""}
@@ -350,7 +417,6 @@ export default function Play({ params }) {
             </div>
           )}
 
-          {/* Ready button — disabled until role has been viewed */}
           <div style={{ marginBottom: 20 }}>
             {!amReady ? (
               <BigBtn
@@ -366,7 +432,6 @@ export default function Play({ params }) {
             )}
           </div>
 
-          {/* Player ready list */}
           <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(232,220,200,0.35)", marginBottom: 10 }}>
             Players
           </div>
@@ -406,13 +471,19 @@ export default function Play({ params }) {
 
     phaseContent = (
       <div style={{ paddingBottom: 48 }}>
-        <Header />
-        <div style={{ padding: "20px 24px 0" }}>
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 30, fontWeight: 900, color: GOLD, lineHeight: 1, letterSpacing: "-1px" }}>
+        {/* Header with quest track + centered quest info on dark bg */}
+        <div style={{ background: "rgba(0,0,0,0.35)" }}>
+          <div style={{ padding: "20px 24px 0" }}>
+            <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.18em", color: "rgba(232,220,200,0.35)" }}>
+              Avalon · {code}
+            </div>
+          </div>
+          <QuestTrack />
+          <div style={{ padding: "0 24px 20px", textAlign: "center" }}>
+            <div style={{ fontSize: 32, fontWeight: 900, color: GOLD, lineHeight: 1, letterSpacing: "-1px" }}>
               Quest {game.quest_number}
             </div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: "rgba(232,220,200,0.65)", marginTop: 6 }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "rgba(232,220,200,0.65)", marginTop: 6 }}>
               {questSize} players needed
             </div>
             {dblFail && (
@@ -421,7 +492,9 @@ export default function Play({ params }) {
               </div>
             )}
           </div>
+        </div>
 
+        <div style={{ padding: "20px 24px 0" }}>
           {game.reject_count > 0 && (
             <div style={{ fontSize: 13, fontWeight: 700, color: EVIL, marginBottom: 12 }}>
               {game.reject_count} / 5 consecutive rejections
@@ -429,10 +502,14 @@ export default function Play({ params }) {
           )}
 
           <div style={{ fontSize: 17, fontWeight: 700, color: amLeader ? GOLD : "rgba(232,220,200,0.55)", marginBottom: 10 }}>
-            {amLeader ? "You're proposing a team" : `${leader?.name ?? "?"} is proposing a team`}
+            {amLeader ? "Propose a team" : `${leader?.name ?? "?"} is proposing a team`}
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 1, marginBottom: 16 }}>
+          <div style={{
+            display: "flex", flexDirection: "column", gap: 1, marginBottom: 16,
+            border: amLeader ? `2px solid ${GOLD}` : "none",
+            outline: amLeader ? `1px solid rgba(201,168,76,0.2)` : "none",
+          }}>
             {players.map(p => (
               <PlayerRow
                 key={p.id} p={p}
@@ -560,10 +637,10 @@ export default function Play({ params }) {
               </div>
               {me.team === "good" && (
                 <div style={{ background: "rgba(74,143,212,0.08)", borderLeft: `3px solid rgba(74,143,212,0.4)`, padding: "12px 16px" }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "rgba(232,220,200,0.8)", lineHeight: 1.55 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "rgba(232,220,200,0.8)", lineHeight: 1.55 }}>
                     As a loyal servant of King Arthur, you can only vote for the quest to succeed.
                   </div>
-                  <div style={{ fontSize: 11, color: "rgba(232,220,200,0.3)", marginTop: 6 }}>
+                  <div style={{ fontSize: 14, color: "rgba(232,220,200,0.45)", marginTop: 8 }}>
                     Thank you for your service.
                   </div>
                 </div>
@@ -576,7 +653,7 @@ export default function Play({ params }) {
             </div>
           )}
           {!onQuest && (
-            <div style={{ fontSize: 15, opacity: 0.55 }}>
+            <div style={{ fontSize: 13, opacity: 0.45 }}>
               You're not on this quest. Hang tight for the outcome…
             </div>
           )}
@@ -601,53 +678,41 @@ export default function Play({ params }) {
         ? (acting ? "…" : "View Final Results →")
         : (acting ? "…" : "Next Quest →")
 
-    // Shuffle cards so fail position isn't predictable
     const voteCards = [
       ...Array(succCount).fill("succeed"),
       ...Array(failCount).fill("fail"),
     ].sort(() => Math.random() - 0.5)
 
-    const totalCards  = voteCards.length
-    const titleDelay  = totalCards * 0.13 + 0.15
+    const totalCards = voteCards.length
+    const titleDelay = totalCards * 0.15 + 0.2
 
     phaseContent = (
       <div style={{ paddingBottom: 48 }}>
         <Header />
         <div style={{ padding: "20px 24px" }}>
-          {/* Score */}
-          <div style={{ textAlign: "center", marginBottom: 28 }}>
-            <div style={{ fontSize: 30, fontWeight: 900, letterSpacing: "-0.5px" }}>
-              <span style={{ color: GOOD }}>Good: {goodWins}</span>
-              <span style={{ color: "rgba(232,220,200,0.25)", margin: "0 10px" }}>·</span>
-              <span style={{ color: EVIL }}>Evil: {evilWins}</span>
-            </div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(232,220,200,0.4)", marginTop: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>
-              First to three wins
-            </div>
-          </div>
 
-          {/* Quest result cards — flip in one by one */}
-          <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", marginBottom: 28 }}>
+          {/* Quest result cards + title */}
+          <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", marginBottom: 24 }}>
             {voteCards.map((v, i) => (
-              <div key={i} style={{
-                width: 72, height: 108,
-                background: v === "succeed" ? GOOD : EVIL,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                flexShrink: 0,
-                animation: `cardFlipIn 0.18s ease ${i * 0.13}s both`,
-              }}>
-                <span style={{ fontSize: 14, fontWeight: 900, color: "#fff", textAlign: "center", padding: "0 4px" }}>
-                  {v === "succeed" ? "Succeed" : "Fail"}
-                </span>
-              </div>
+              <PlayingCard
+                key={i}
+                animate={animReady}
+                delay={i * 0.15}
+                frontBg={v === "succeed" ? GOOD : EVIL}
+                frontContent={
+                  <span style={{ fontSize: 16, fontWeight: 900, color: "#fff" }}>
+                    {v === "succeed" ? "Succeed" : "Fail"}
+                  </span>
+                }
+              />
             ))}
           </div>
 
-          {/* Result title — reveals after cards */}
           <div style={{
             fontSize: 38, fontWeight: 900, color: resultColor, lineHeight: 1.1,
             textAlign: "center", marginBottom: 28,
-            animation: `titleReveal 0.3s ease ${titleDelay}s both`,
+            opacity: animReady ? 1 : 0,
+            animation: animReady ? `titleReveal 0.3s ease ${titleDelay}s both` : "none",
           }}>
             {lastResult === "success" ? "Quest Succeeded" : "Quest Failed"}
           </div>
@@ -657,6 +722,18 @@ export default function Play({ params }) {
             onClick={() => rpc("advance_avalon_quest", { p_code: code })}
             disabled={acting}
           />
+
+          {/* Score below the button */}
+          <div style={{ textAlign: "center", marginTop: 24 }}>
+            <div style={{ fontSize: 26, fontWeight: 900 }}>
+              <span style={{ color: GOOD }}>Good: {goodWins}</span>
+              <span style={{ color: "rgba(232,220,200,0.25)", margin: "0 10px" }}>·</span>
+              <span style={{ color: EVIL }}>Evil: {evilWins}</span>
+            </div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(232,220,200,0.4)", marginTop: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+              First to three wins
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -713,7 +790,7 @@ export default function Play({ params }) {
                 The Assassin is choosing their target.
               </div>
               <div style={{ fontSize: 16, fontWeight: 700, color: "rgba(232,220,200,0.75)", lineHeight: 1.6 }}>
-                If the Assassin is able to guess Merlin's identity, evil wins the game.
+                If the Assassin is able to guess Merlin's identity, the evil Minions of Mordred win the game.
               </div>
             </div>
           )}
@@ -724,11 +801,10 @@ export default function Play({ params }) {
 
   // ── finished ─────────────────────────────────────────────────
   else if (phase === "finished") {
-    const goodWon     = game.winning_team === "good"
-    const winColor    = goodWon ? GOOD : EVIL
-    const goodPlayers = players.filter(p => p.team === "good")
+    const goodWon      = game.winning_team === "good"
+    const winColor     = goodWon ? GOOD : EVIL
+    const goodPlayers  = players.filter(p => p.team === "good")
     const evilPlayers2 = players.filter(p => p.team === "evil")
-    const allPlayers  = [...goodPlayers, ...evilPlayers2]
 
     phaseContent = (
       <div style={{ paddingBottom: 48 }}>
@@ -743,45 +819,49 @@ export default function Play({ params }) {
               {goodWon ? "Good" : "Evil"} wins
             </div>
             <div style={{ fontSize: 34, fontWeight: 900, color: winColor, lineHeight: 1.2 }}>
-              {goodWon ? "Long Live King Arthur." : "Mordred Eats King Arthur"}
+              {goodWon ? "Long live King Arthur" : "Mordred Eats King Arthur"}
             </div>
           </div>
 
-          <div style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: GOOD, marginBottom: 10 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: GOOD, marginBottom: 12 }}>
             Loyal Servants of King Arthur
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center", marginBottom: 28 }}>
             {goodPlayers.map((p, i) => (
-              <div key={p.id} style={{
-                width: 72, height: 108,
-                background: GOOD,
-                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                padding: "10px 8px", textAlign: "center",
-                animation: `cardFlipIn 0.18s ease ${i * 0.1}s both`,
-              }}>
-                <div style={{ fontSize: 14, fontWeight: 900, color: "#fff", lineHeight: 1.2 }}>{p.name}</div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.65)", marginTop: 5, lineHeight: 1.3 }}>{ROLE_LABEL[p.role] ?? p.role}</div>
-                {p.id === myId && <div style={{ fontSize: 9, color: "rgba(255,255,255,0.4)", marginTop: 3 }}>you</div>}
-              </div>
+              <PlayingCard
+                key={p.id}
+                animate={true}
+                delay={i * 0.1}
+                frontBg={GOOD}
+                frontContent={
+                  <>
+                    <div style={{ fontSize: 16, fontWeight: 900, color: "#fff", lineHeight: 1.2, wordBreak: "break-word" }}>{p.name}</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.65)", marginTop: 6, lineHeight: 1.3 }}>{ROLE_LABEL[p.role] ?? p.role}</div>
+                    {p.id === myId && <div style={{ fontSize: 9, color: "rgba(255,255,255,0.4)", marginTop: 4 }}>you</div>}
+                  </>
+                }
+              />
             ))}
           </div>
 
-          <div style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: EVIL, marginBottom: 10 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: EVIL, marginBottom: 12 }}>
             Minions of Mordred
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 28 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center", marginBottom: 28 }}>
             {evilPlayers2.map((p, i) => (
-              <div key={p.id} style={{
-                width: 72, height: 108,
-                background: EVIL,
-                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                padding: "10px 8px", textAlign: "center",
-                animation: `cardFlipIn 0.18s ease ${(goodPlayers.length + i) * 0.1}s both`,
-              }}>
-                <div style={{ fontSize: 14, fontWeight: 900, color: "#fff", lineHeight: 1.2 }}>{p.name}</div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.65)", marginTop: 5, lineHeight: 1.3 }}>{ROLE_LABEL[p.role] ?? p.role}</div>
-                {p.id === myId && <div style={{ fontSize: 9, color: "rgba(255,255,255,0.4)", marginTop: 3 }}>you</div>}
-              </div>
+              <PlayingCard
+                key={p.id}
+                animate={true}
+                delay={(goodPlayers.length + i) * 0.1}
+                frontBg={EVIL}
+                frontContent={
+                  <>
+                    <div style={{ fontSize: 16, fontWeight: 900, color: "#fff", lineHeight: 1.2, wordBreak: "break-word" }}>{p.name}</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.65)", marginTop: 6, lineHeight: 1.3 }}>{ROLE_LABEL[p.role] ?? p.role}</div>
+                    {p.id === myId && <div style={{ fontSize: 9, color: "rgba(255,255,255,0.4)", marginTop: 4 }}>you</div>}
+                  </>
+                }
+              />
             ))}
           </div>
 
@@ -793,7 +873,7 @@ export default function Play({ params }) {
               await supabase.from("avalon_games").update({
                 phase: "lobby", quest_results: [], winning_team: null,
                 proposed_ids: [], reject_count: 0, quest_number: 1,
-                leader_id: null, player_count: null,
+                leader_id: null, player_count: null, reveal_at: null,
               }).eq("code", code)
               await supabase.from("avalon_players").update({
                 role: null, team: null, seat: null, submitted_card: null, ready: false,
@@ -812,23 +892,23 @@ export default function Play({ params }) {
     <div style={{ minHeight: "100dvh", background: BG, color: TEXT }}>
       <style>{STYLES}</style>
 
-      {/* Global mini role card — visible on all phases after role has been seen */}
+      {/* Persistent mini role card — gold border always (doesn't reveal team) */}
       {showMiniCard && (
         <div
           className="av-mini-in"
           onClick={handleMiniCardTap}
           style={{
             position: "fixed", bottom: 24, right: 24,
-            background: CARD, border: `2px solid ${teamColor}`,
+            background: CARD, border: `2px solid ${GOLD}`,
             padding: "12px 16px", cursor: "pointer", zIndex: 100,
-            boxShadow: "0 6px 24px rgba(0,0,0,0.6)",
+            boxShadow: "0 6px 24px rgba(0,0,0,0.6)", borderRadius: 4,
           }}
         >
-          <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(232,220,200,0.4)" }}>My Role</div>
+          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(232,220,200,0.5)" }}>My Role</div>
         </div>
       )}
 
-      {/* Role modal overlay — tapping mini card outside role_reveal */}
+      {/* Role modal overlay */}
       {roleModalOpen && (
         <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(15,25,35,0.97)", overflowY: "auto", padding: 24 }}>
           <div style={{ background: CARD, padding: 24, marginBottom: 16 }}>
