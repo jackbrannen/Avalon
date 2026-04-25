@@ -12,8 +12,10 @@ const GOOD      = "#4A8FD4"
 const EVIL      = "#AA2222"
 const TEAL      = "#12BAAA"
 const CARD_BACK = "#243040"
-const CARD_W    = 90
-const CARD_H    = 135
+
+// ~1/3 of the padded viewport (24px side padding × 2 + 20px for gaps = 68px)
+const CARD_W = "calc((100vw - 68px) / 3)"
+const CARD_H = "calc((100vw - 68px) / 2)"
 
 const QUEST_SIZES = {
   5:  [2,3,2,3,3],
@@ -177,6 +179,24 @@ export default function Play({ params }) {
   const questSize = sizes[(game?.quest_number ?? 1) - 1]
   const proposed  = players.filter(p => (game?.proposed_ids ?? []).includes(p.id))
 
+  // Quest score — computed once at top level, used in persistent overlay + result phase
+  const allResults = game?.quest_results ?? []
+  const goodWins   = allResults.filter(r => r === "success").length
+  const evilWins   = allResults.filter(r => r === "fail").length
+
+  // Stable shuffled vote cards — only reshuffles when phase or card counts change
+  const resultFailCount = phase === "result" ? proposed.filter(p => p.submitted_card === "fail").length : 0
+  const resultSuccCount = phase === "result" ? proposed.length - resultFailCount : 0
+  const voteCards = useMemo(() => {
+    const arr = [...Array(resultSuccCount).fill("succeed"), ...Array(resultFailCount).fill("fail")]
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]]
+    }
+    return arr
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, resultSuccCount, resultFailCount])
+
   // Role info — computed once, reused in card and modal
   const evilPlayers = players.filter(p => p.team === "evil")
   const evilOthers  = evilPlayers.filter(p => p.id !== myId)
@@ -184,8 +204,11 @@ export default function Play({ params }) {
   const teamLabel   = me?.team === "good" ? "Good" : "Evil — Minions of Mordred"
 
   // Mini card: visible on all phases after role has been seen
-  const hasSeenRole = cardPhase !== "unset"
+  const hasSeenRole  = cardPhase !== "unset"
   const showMiniCard = !!me && hasSeenRole && (phase !== "role_reveal" || cardPhase === "mini")
+
+  // Persistent score: show during active quest phases
+  const showScore = ["propose", "vote", "mission", "result", "assassination"].includes(phase)
 
   function handleMiniCardTap() {
     if (phase === "role_reveal") setCardPhase("shown")
@@ -253,7 +276,7 @@ export default function Play({ params }) {
         onClick={onClick}
         style={{
           background: highlight ? "rgba(201,168,76,0.18)" : CARD,
-          border: highlight ? `2px solid ${GOLD}` : "2px solid transparent",
+          border: "2px solid transparent",
           padding: "13px 16px",
           display: "flex", alignItems: "center", gap: 10,
           cursor: onClick ? "pointer" : "default",
@@ -306,7 +329,7 @@ export default function Play({ params }) {
             <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: EVIL, marginBottom: 10 }}>
               Evil Minions of Mordred
             </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "flex-start" }}>
               {evilPlayers.map(p => (
                 <StaticCard key={p.id} bg={EVIL}>
                   <span style={{ fontSize: 16, fontWeight: 900, color: "#fff", wordBreak: "break-word" }}>{p.name}</span>
@@ -326,7 +349,7 @@ export default function Play({ params }) {
                 <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: EVIL, marginBottom: 10 }}>
                   Fellow Minions
                 </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "flex-start" }}>
                   {evilOthers.map(p => (
                     <StaticCard key={p.id} bg={EVIL}>
                       <span style={{ fontSize: 16, fontWeight: 900, color: "#fff", wordBreak: "break-word" }}>{p.name}</span>
@@ -502,7 +525,7 @@ export default function Play({ params }) {
           )}
 
           <div style={{ fontSize: 17, fontWeight: 700, color: amLeader ? GOLD : "rgba(232,220,200,0.55)", marginBottom: 10 }}>
-            {amLeader ? "Propose a team" : `${leader?.name ?? "?"} is proposing a team`}
+            {amLeader ? "Propose a team for the quest" : `${leader?.name ?? "?"} is proposing a team for the quest.`}
           </div>
 
           <div style={{
@@ -664,12 +687,7 @@ export default function Play({ params }) {
 
   // ── result ───────────────────────────────────────────────────
   else if (phase === "result") {
-    const results     = game.quest_results ?? []
-    const lastResult  = results[results.length - 1]
-    const goodWins    = results.filter(r => r === "success").length
-    const evilWins    = results.filter(r => r === "fail").length
-    const failCount   = proposed.filter(p => p.submitted_card === "fail").length
-    const succCount   = proposed.length - failCount
+    const lastResult  = allResults[allResults.length - 1]
     const resultColor = lastResult === "success" ? GOOD : EVIL
 
     const nextLabel = goodWins >= 3
@@ -677,11 +695,6 @@ export default function Play({ params }) {
       : evilWins >= 3
         ? (acting ? "…" : "View Final Results →")
         : (acting ? "…" : "Next Quest →")
-
-    const voteCards = [
-      ...Array(succCount).fill("succeed"),
-      ...Array(failCount).fill("fail"),
-    ].sort(() => Math.random() - 0.5)
 
     const totalCards = voteCards.length
     const titleDelay = totalCards * 0.15 + 0.2
@@ -722,18 +735,6 @@ export default function Play({ params }) {
             onClick={() => rpc("advance_avalon_quest", { p_code: code })}
             disabled={acting}
           />
-
-          {/* Score below the button */}
-          <div style={{ textAlign: "center", marginTop: 24 }}>
-            <div style={{ fontSize: 26, fontWeight: 900 }}>
-              <span style={{ color: GOOD }}>Good: {goodWins}</span>
-              <span style={{ color: "rgba(232,220,200,0.25)", margin: "0 10px" }}>·</span>
-              <span style={{ color: EVIL }}>Evil: {evilWins}</span>
-            </div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(232,220,200,0.4)", marginTop: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>
-              First to three wins
-            </div>
-          </div>
         </div>
       </div>
     )
@@ -823,7 +824,7 @@ export default function Play({ params }) {
             </div>
           </div>
 
-          <div style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: GOOD, marginBottom: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: GOOD, marginBottom: 12, textAlign: "center" }}>
             Loyal Servants of King Arthur
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center", marginBottom: 28 }}>
@@ -844,7 +845,7 @@ export default function Play({ params }) {
             ))}
           </div>
 
-          <div style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: EVIL, marginBottom: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: EVIL, marginBottom: 12, textAlign: "center" }}>
             Minions of Mordred
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center", marginBottom: 28 }}>
@@ -891,6 +892,21 @@ export default function Play({ params }) {
   return (
     <div style={{ minHeight: "100dvh", background: BG, color: TEXT }}>
       <style>{STYLES}</style>
+
+      {/* Persistent score — top right, visible during active quest phases */}
+      {showScore && (
+        <div style={{
+          position: "fixed", top: 16, right: 16, zIndex: 50,
+          background: "rgba(15,25,35,0.92)", borderRadius: 6,
+          padding: "7px 12px",
+          display: "flex", gap: 8, alignItems: "center",
+          boxShadow: "0 2px 12px rgba(0,0,0,0.5)",
+        }}>
+          <span style={{ color: GOOD, fontSize: 15, fontWeight: 900 }}>Loyal Servants: {goodWins}</span>
+          <span style={{ color: "rgba(232,220,200,0.25)", fontSize: 13 }}>·</span>
+          <span style={{ color: EVIL, fontSize: 15, fontWeight: 900 }}>Evil Minions: {evilWins}</span>
+        </div>
+      )}
 
       {/* Persistent mini role card — gold border always (doesn't reveal team) */}
       {showMiniCard && (
