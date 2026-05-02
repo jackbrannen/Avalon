@@ -103,7 +103,7 @@ export default function Lobby({ params }) {
         .eq("code", code)
         .single()
       if (data) setGamePhase(data.phase)
-    }, 1500)
+    }, 5000)
     return () => clearInterval(poll)
   }, [code])
 

@@ -154,7 +154,7 @@ export default function Play({ params }) {
 
   useEffect(() => {
     refresh()
-    const t = setInterval(refresh, 1500)
+    const t = setInterval(refresh, 5000)
     return () => clearInterval(t)
   }, [code])
 
