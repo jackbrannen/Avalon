@@ -108,8 +108,8 @@ export default function Lobby({ params }) {
   }, [code])
 
   useEffect(() => {
-    if (gamePhase !== "lobby") router.replace(`/${code}/play`)
-  }, [gamePhase])
+    if (gamePhase !== "lobby" && myPlayerId) router.replace(`/${code}/play`)
+  }, [gamePhase, myPlayerId])
 
   async function join() {
     const trimmed = name.trim()
@@ -185,6 +185,17 @@ export default function Lobby({ params }) {
     return (
       <div style={{ minHeight: "100dvh", background: BG, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
         <p style={{ color: TEXT, fontSize: 24, fontWeight: 900 }}>Game not found.</p>
+      </div>
+    )
+  }
+
+  if (gamePhase !== "lobby" && !myPlayerId) {
+    return (
+      <div style={{ minHeight: "100dvh", background: BG, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px", textAlign: "center" }}>
+        <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.18em", opacity: 0.5, marginBottom: 16, color: TEXT }}>Avalon</div>
+        <h2 style={{ fontSize: 28, fontWeight: 900, marginBottom: 12, letterSpacing: "-0.5px", color: TEXT }}>A game is in progress.</h2>
+        <p style={{ fontSize: 16, opacity: 0.55, fontWeight: 500, marginBottom: 32, color: TEXT }}>This page will update automatically.</p>
+        <button disabled style={{ background: GOLD, color: "#000", fontSize: 18, fontWeight: 900, padding: "18px 28px" }}>Join Lobby</button>
       </div>
     )
   }
