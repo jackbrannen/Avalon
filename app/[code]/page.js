@@ -195,7 +195,7 @@ export default function Lobby({ params }) {
         <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.18em", opacity: 0.5, marginBottom: 16, color: TEXT }}>Avalon</div>
         <h2 style={{ fontSize: 28, fontWeight: 900, marginBottom: 12, letterSpacing: "-0.5px", color: TEXT }}>A game is in progress.</h2>
         <p style={{ fontSize: 16, opacity: 0.55, fontWeight: 500, marginBottom: 32, color: TEXT }}>This page will update automatically.</p>
-        <button disabled style={{ background: GOLD, color: "#000", fontSize: 18, fontWeight: 900, padding: "18px 28px" }}>Join Lobby</button>
+        <button onClick={loadState} style={{ background: GOLD, color: "#000", fontSize: 18, fontWeight: 900, padding: "18px 28px" }}>Join Lobby</button>
       </div>
     )
   }
