@@ -62,6 +62,7 @@ export default function Lobby({ params }) {
   const [joining, setJoining]         = useState(false)
   const [joinError, setJoinError]     = useState("")
   const [starting, setStarting]       = useState(false)
+  const [confirmingStart, setConfirmingStart] = useState(false)
 
   async function refreshPlayers() {
     const { data } = await supabase
@@ -232,7 +233,7 @@ export default function Lobby({ params }) {
             Ready to Start?
           </div>
           <button
-            onClick={startGame}
+            onClick={() => setConfirmingStart(true)}
             disabled={starting}
             style={{ background: "#000", color: GOLD, fontSize: 24, fontWeight: 900, padding: "20px", width: "100%", display: "block" }}
           >
@@ -300,6 +301,67 @@ export default function Lobby({ params }) {
         </div>
       </div>
 
+      {confirmingStart && (
+        <div
+          onClick={() => setConfirmingStart(false)}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: 24, zIndex: 100,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: "#1C2B3A", width: "100%", maxWidth: 400, padding: "28px 24px" }}
+          >
+            <h2 style={{ fontSize: 22, fontWeight: 900, color: TEXT, marginBottom: 8 }}>
+              Start the game?
+            </h2>
+            <p style={{ fontSize: 15, color: TEXT, opacity: 0.75, fontWeight: 600, marginBottom: 20 }}>
+              This will begin for everyone. Are all players in?
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 24 }}>
+              {players.map((p, i) => (
+                <div key={p.id} style={{ display: "flex" }}>
+                  <div style={{
+                    padding: "10px 0", minWidth: 40, flexShrink: 0,
+                    background: "#253545",
+                    fontSize: 15, fontWeight: 900, color: TEXT,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    {i + 1}
+                  </div>
+                  <div style={{
+                    padding: "10px 14px", flex: 1,
+                    background: "rgba(255,255,255,0.06)",
+                    display: "flex", alignItems: "center",
+                  }}>
+                    <span style={{ fontSize: 16, fontWeight: 700, color: TEXT }}>
+                      {p.name}
+                      {p.id === myPlayerId && <span style={{ fontSize: 12, opacity: 0.65, marginLeft: 6 }}>you</span>}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => setConfirmingStart(false)}
+                style={{ flex: 1, background: "rgba(255,255,255,0.10)", color: TEXT, fontSize: 17, fontWeight: 800, padding: "16px" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { setConfirmingStart(false); startGame() }}
+                disabled={starting}
+                style={{ flex: 2, background: GOLD, color: "#000", fontSize: 17, fontWeight: 900, padding: "16px" }}
+              >
+                {starting ? "Starting…" : "Start Game"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
