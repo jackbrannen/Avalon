@@ -7,6 +7,7 @@ import { supabase } from "../lib/supabase"
 const BG = "#0F1923"
 const GOLD = "#C9A84C"
 const TEXT = "#E8DCC8"
+const WARM_LIGHT = "#19303B"
 
 const WORDS_A = ["AMBER","CEDAR","CRIMSON","DAGGER","EMBER","FALCON","GLACIER","HARBOR","INDIGO","JASPER","KODIAK","LANTERN","MARBLE","NEBULA","ONYX","PHANTOM","QUARTZ","RAVEN","SILVER","TOPAZ"]
 const WORDS_B = ["ANCHOR","BASALT","COBALT","DUSK","ECLIPSE","FLINT","GRAVEL","HAZE","IRON","JADE","KHAKI","LAVA","MOSS","NICKEL","OBSIDIAN","PEWTER","RUST","SLATE","TEAK","UMBER"]
@@ -105,7 +106,7 @@ export default function Home() {
             onKeyDown={e => e.key === "Enter" && onJoin()}
             style={{
               flex: 1, minWidth: 0,
-              background: "rgba(255,255,255,0.07)", color: TEXT,
+              background: WARM_LIGHT, color: TEXT,
               fontSize: 18, fontWeight: 800,
               padding: "18px 16px",
               textTransform: "uppercase", letterSpacing: "0.06em",
@@ -114,7 +115,7 @@ export default function Home() {
           <button
             onClick={onJoin}
             style={{
-              background: "rgba(255,255,255,0.07)", color: TEXT,
+              background: WARM_LIGHT, color: TEXT,
               fontSize: 18, fontWeight: 900, padding: "18px 20px", flexShrink: 0,
             }}
           >

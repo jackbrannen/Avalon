@@ -4,14 +4,15 @@ import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../../../lib/supabase"
 
-const BG        = "#0F1923"
-const CARD      = "#1C2B3A"
-const GOLD      = "#C9A84C"
-const TEXT      = "#E8DCC8"
-const GOOD      = "#4A8FD4"
-const EVIL      = "#AA2222"
-const TEAL      = "#12BAAA"
-const CARD_BACK = "#243040"
+const BG         = "#0F1923"
+const CARD       = "#1C2B3A"
+const GOLD       = "#C9A84C"
+const TEXT       = "#E8DCC8"
+const GOOD       = "#4A8FD4"
+const EVIL       = "#AA2222"
+const TEAL       = "#12BAAA"
+const CARD_BACK  = "#243040"
+const WARM_LIGHT = "#19303B"
 
 // ~1/3 of the padded viewport (24px side padding × 2 + 20px for gaps = 68px)
 const CARD_W = "calc((100vw - 68px) / 3)"
@@ -311,7 +312,7 @@ export default function Play({ params }) {
         onClick={onClick}
         disabled={disabled}
         style={{
-          background: disabled ? "rgba(255,255,255,0.05)" : color,
+          background: disabled ? WARM_LIGHT : color,
           color: disabled ? "rgba(232,220,200,0.25)" : textColor,
           fontSize: 20, fontWeight: 900, padding: "18px", width: "100%", display: "block",
         }}
@@ -438,7 +439,7 @@ export default function Play({ params }) {
                   <RoleCardBody />
                   <button
                     onClick={handleHide}
-                    style={{ background: "rgba(255,255,255,0.07)", color: TEXT, fontSize: 13, fontWeight: 700, padding: "10px 18px", marginTop: 22, display: "inline-block" }}
+                    style={{ background: WARM_LIGHT, color: TEXT, fontSize: 13, fontWeight: 700, padding: "10px 18px", marginTop: 22, display: "inline-block" }}
                   >
                     Hide
                   </button>
@@ -880,7 +881,7 @@ export default function Play({ params }) {
 
           <BigBtn
             label="Play Again"
-            color="rgba(255,255,255,0.08)"
+            color={WARM_LIGHT}
             textColor={TEXT}
             onClick={async () => {
               await supabase.from("avalon_games").update({
@@ -951,7 +952,7 @@ export default function Play({ params }) {
           </div>
           <button
             onClick={() => setRoleModalOpen(false)}
-            style={{ background: "rgba(255,255,255,0.07)", color: TEXT, fontSize: 16, fontWeight: 700, padding: "14px 24px", width: "100%", display: "block" }}
+            style={{ background: WARM_LIGHT, color: TEXT, fontSize: 16, fontWeight: 700, padding: "14px 24px", width: "100%", display: "block" }}
           >
             Close
           </button>
