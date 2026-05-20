@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../../../lib/supabase"
 
@@ -124,6 +124,22 @@ function StaticCard({ bg, children }) {
   )
 }
 
+function playChirp() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.frequency.setValueAtTime(523, ctx.currentTime)
+    osc.frequency.setValueAtTime(659, ctx.currentTime + 0.08)
+    gain.gain.setValueAtTime(0.25, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.25)
+  } catch {}
+}
+
 export default function Play({ params }) {
   const code   = useMemo(() => params.code.toUpperCase(), [params.code])
   const router = useRouter()
@@ -137,6 +153,15 @@ export default function Play({ params }) {
   const [roleModalOpen, setRoleModalOpen] = useState(false)
   const [acting, setActing]             = useState(false)
   const [animReady, setAnimReady]       = useState(false)
+  const soundTriggerRef = useRef(null)
+
+  useEffect(() => {
+    if (!game || !myId) return
+    const prev = soundTriggerRef.current
+    soundTriggerRef.current = game.phase
+    if (!prev) return
+    if (prev !== game.phase) playChirp()
+  }, [game?.phase])
 
   useEffect(() => {
     const id = localStorage.getItem(`avalon:${code}:playerId`)
