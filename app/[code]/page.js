@@ -89,7 +89,7 @@ export default function Lobby({ params }) {
 
   useEffect(() => {
     const saved = loadProfile()
-    if (saved) { saveProfile(saved); setSavedProfile(saved); setName(saved.username || "") }
+    if (saved) { if (saved.username) saveProfile(saved); setSavedProfile(saved); setName(saved.username || saved.firstName || "") }
   }, [])
 
   useEffect(() => {
