@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../../../lib/supabase"
+import PokeSystem, { FOOTER_H } from "../../../components/PokeSystem"
 
 const BG         = "#0F1923"
 const CARD       = "#1C2B3A"
@@ -35,6 +36,10 @@ const ROLE_LABEL = {
 }
 
 // Used to split two-word room codes into their component words for display
+
+
+const POKE_COLORS = { dark: "#091218", mid: "#1C2B3A", wl: "#19303B", yellow: "#C9A84C", notifBg: "#070D13" }
+const BOTTOM_PAD = `calc(${FOOTER_H + 8}px + env(safe-area-inset-bottom))`
 const WORDS_A = ["AMBER","CEDAR","CRIMSON","DAGGER","EMBER","FALCON","GLACIER","HARBOR","INDIGO","JASPER","KODIAK","LANTERN","MARBLE","NEBULA","ONYX","PHANTOM","QUARTZ","RAVEN","SILVER","TOPAZ"]
 
 function splitCode(code) {
@@ -210,6 +215,20 @@ export default function Play({ params }) {
   }, [phase, game?.reveal_at])
 
   const me        = players.find(p => p.id === myId)
+
+  // ── PokeSystem (always mounted for notifications) ──────────────────────────
+  const pokeSystemNode = me ? (
+    <PokeSystem
+      colors={POKE_COLORS}
+      roomCode={code}
+      currentPlayer={me.name}
+      allPlayers={players.map(p => p.name)}
+      playerDetails={players.map(p => ({ name: p.name, firstName: p.first_name, lastName: p.last_name }))}
+      gamePhase={game?.phase}
+      onResetToLobby={async () => { await supabase.rpc("avalon_reset_to_lobby", { p_code: code }) }}
+    />
+  ) : null
+
   const leader    = players.find(p => p.id === game?.leader_id)
   const sizes     = QUEST_SIZES[game?.player_count ?? 5] ?? [2,3,2,3,3]
   const questSize = sizes[(game?.quest_number ?? 1) - 1]
@@ -264,6 +283,7 @@ export default function Play({ params }) {
   function QuestTrack() {
     const results = game.quest_results ?? []
     return (
+      <>
       <div>
         <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.18em", color: "rgba(232,220,200,0.35)", textAlign: "center", paddingTop: 14, paddingBottom: 6 }}>
           Quests
@@ -289,11 +309,14 @@ export default function Play({ params }) {
           })}
         </div>
       </div>
+        {pokeSystemNode}
+      </>
     )
   }
 
   function Header({ sub, showTrack = true }) {
     return (
+      <>
       <div style={{ background: "rgba(0,0,0,0.35)" }}>
         {sub && (
           <div style={{ padding: "14px 24px 0" }}>
@@ -302,11 +325,14 @@ export default function Play({ params }) {
         )}
         {showTrack ? <QuestTrack /> : sub ? <div style={{ paddingBottom: 16 }} /> : null}
       </div>
+        {pokeSystemNode}
+      </>
     )
   }
 
   function PlayerRow({ p, onClick, highlight }) {
     return (
+      <>
       <div
         onClick={onClick}
         style={{
@@ -328,11 +354,14 @@ export default function Play({ params }) {
           {p.id === game?.leader_id && <span style={{ opacity: 0.45, fontSize: 13, fontWeight: 600 }}> ♛</span>}
         </span>
       </div>
+        {pokeSystemNode}
+      </>
     )
   }
 
   function BigBtn({ label, onClick, disabled, color = GOLD, textColor = "#000" }) {
     return (
+      <>
       <button
         onClick={onClick}
         disabled={disabled}
@@ -344,6 +373,8 @@ export default function Play({ params }) {
       >
         {label}
       </button>
+        {pokeSystemNode}
+      </>
     )
   }
 
@@ -422,9 +453,12 @@ export default function Play({ params }) {
 
   if (!game || !me) {
     return (
+      <>
       <div style={{ minHeight: "100dvh", background: BG, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <p style={{ color: "rgba(232,220,200,0.4)", fontSize: 18, fontWeight: 700 }}>Loading…</p>
       </div>
+        {pokeSystemNode}
+      </>
     )
   }
 
@@ -930,6 +964,7 @@ export default function Play({ params }) {
   const [codeWord1, codeWord2] = splitCode(code)
 
   return (
+    <>
     <div style={{ minHeight: "100dvh", background: BG, color: TEXT }}>
       <style>{STYLES}</style>
 
@@ -990,5 +1025,7 @@ export default function Play({ params }) {
         </div>
       )}
     </div>
+      {pokeSystemNode}
+    </>
   )
 }
