@@ -155,7 +155,6 @@ export default function Play({ params }) {
   const [selected, setSelected]         = useState([])
   const [target, setTarget]             = useState(null)
   const [cardPhase, setCardPhase]       = useState("unset")
-  const [roleModalOpen, setRoleModalOpen] = useState(false)
   const [acting, setActing]             = useState(false)
   const [animReady, setAnimReady]       = useState(false)
   const soundTriggerRef = useRef(null)
@@ -199,7 +198,6 @@ export default function Play({ params }) {
     setSelected([])
     setTarget(null)
     setActing(false)
-    setRoleModalOpen(false)
     setAnimReady(false)
     if (phase === "role_reveal") setCardPhase("unset") // reset for each new game
   }, [phase])
@@ -225,6 +223,7 @@ export default function Play({ params }) {
       allPlayers={players.map(p => p.name)}
       playerDetails={players.map(p => ({ name: p.name, firstName: p.first_name, lastName: p.last_name }))}
       gamePhase={game?.phase}
+      roleContent={hasSeenRole ? <RoleCardBody /> : null}
       onResetToLobby={async () => { await supabase.rpc("avalon_reset_to_lobby", { p_code: code }) }}
     />
   ) : null
@@ -260,15 +259,8 @@ export default function Play({ params }) {
 
   // Mini card: visible on all phases after role has been seen
   const hasSeenRole  = cardPhase !== "unset"
-  const showMiniCard = !!me && hasSeenRole && (phase !== "role_reveal" || cardPhase === "mini")
-
-  // Score menu bar: show during active quest phases
+// Score menu bar: show during active quest phases
   const showMenuBar = ["propose", "vote", "mission", "result", "assassination"].includes(phase)
-
-  function handleMiniCardTap() {
-    if (phase === "role_reveal") setCardPhase("shown")
-    else setRoleModalOpen(true)
-  }
 
   async function rpc(fn, args = {}) {
     if (acting) return
@@ -985,37 +977,6 @@ export default function Play({ params }) {
           <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: "-0.5px", flexShrink: 0 }}>
             <span style={{ color: GOLD }}>{codeWord1}</span><span style={{ color: TEXT }}>{codeWord2}</span>
           </div>
-        </div>
-      )}
-
-      {/* Persistent mini role card — gold border always (doesn't reveal team) */}
-      {showMiniCard && (
-        <div
-          className="av-mini-in"
-          onClick={handleMiniCardTap}
-          style={{
-            position: "fixed", bottom: 24, right: 24,
-            background: CARD, border: `2px solid ${GOLD}`,
-            padding: "12px 16px", cursor: "pointer", zIndex: 100,
-            boxShadow: "0 6px 24px rgba(0,0,0,0.6)", borderRadius: 4,
-          }}
-        >
-          <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(232,220,200,0.5)" }}>My Role</div>
-        </div>
-      )}
-
-      {/* Role modal overlay */}
-      {roleModalOpen && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(15,25,35,0.97)", overflowY: "auto", padding: 24 }}>
-          <div style={{ background: CARD, padding: 24, marginBottom: 16 }}>
-            <RoleCardBody />
-          </div>
-          <button
-            onClick={() => setRoleModalOpen(false)}
-            style={{ background: WARM_LIGHT, color: TEXT, fontSize: 16, fontWeight: 700, padding: "14px 24px", width: "100%", display: "block" }}
-          >
-            Close
-          </button>
         </div>
       )}
 
