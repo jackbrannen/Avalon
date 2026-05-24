@@ -54,13 +54,9 @@ const STYLES = `
     0%   { transform: perspective(700px) rotateY(-80deg) scale(0.85); opacity: 0; }
     100% { transform: perspective(700px) rotateY(0deg)   scale(1);    opacity: 1; }
   }
-  @keyframes avFlipOut {
-    0%   { transform: perspective(700px) rotateY(0deg)  scale(1);   opacity: 1; }
-    100% { transform: perspective(700px) rotateY(80deg) scale(0.5); opacity: 0; }
-  }
-  @keyframes avMiniIn {
-    0%   { transform: scale(0.6) translateY(12px); opacity: 0; }
-    100% { transform: scale(1)   translateY(0);    opacity: 1; }
+  @keyframes avCardFly {
+    from { transform: translate(0, 0) scale(1); opacity: 1; }
+    to   { transform: translate(calc(28px - 50vw), 80vh) scale(0.06); opacity: 0; }
   }
   @keyframes cardFlip180 {
     0%   { transform: perspective(600px) rotateY(180deg); }
@@ -70,9 +66,8 @@ const STYLES = `
     from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }
   }
-  .av-flip-in  { animation: avFlipIn  0.35s ease forwards; }
-  .av-flip-out { animation: avFlipOut 0.32s ease forwards; }
-  .av-mini-in  { animation: avMiniIn  0.28s ease both; }
+  .av-flip-in  { animation: avFlipIn   0.35s ease forwards; }
+  .av-flip-out { animation: avCardFly 0.5s ease-in forwards; }
 `
 
 // Playing card with 180° flip reveal. animate=false → stays face-down; animate=true → flips in.
@@ -494,6 +489,9 @@ export default function Play({ params }) {
                   >
                     Hide
                   </button>
+                  <div style={{ fontSize: 13, color: "rgba(232,220,200,0.5)", marginTop: 10, lineHeight: 1.5 }}>
+                    Open the menu to view your card again.
+                  </div>
                 </>
               )}
             </div>
