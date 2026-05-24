@@ -550,7 +550,7 @@ export default function Play({ params }) {
     }
 
     phaseContent = (
-      <div style={{ paddingBottom: 48 }}>
+      <div style={{ paddingBottom: BOTTOM_PAD }}>
         <div style={{ background: "rgba(0,0,0,0.35)" }}>
           <QuestTrack />
           <div style={{ padding: "0 24px 20px", textAlign: "center" }}>
@@ -610,7 +610,7 @@ export default function Play({ params }) {
     const amLeader = me.id === game.leader_id
 
     phaseContent = (
-      <div style={{ paddingBottom: 48 }}>
+      <div style={{ paddingBottom: BOTTOM_PAD }}>
         <Header sub={`Quest ${game.quest_number}`} />
         <div style={{ padding: "20px 24px" }}>
           <div style={{ fontSize: 28, fontWeight: 900, color: TEXT, marginBottom: 12 }}>
@@ -665,7 +665,7 @@ export default function Play({ params }) {
     const myCard    = me.submitted_card
 
     phaseContent = (
-      <div style={{ paddingBottom: 48 }}>
+      <div style={{ paddingBottom: BOTTOM_PAD }}>
         <Header sub={`Quest ${game.quest_number}`} />
         <div style={{ padding: "20px 24px" }}>
           <div style={{ background: "rgba(74,143,212,0.1)", border: `1px solid rgba(74,143,212,0.3)`, padding: "14px 18px", marginBottom: 20, textAlign: "center" }}>
@@ -751,7 +751,7 @@ export default function Play({ params }) {
     const titleDelay = totalCards * 0.15 + 0.2
 
     phaseContent = (
-      <div style={{ paddingBottom: 48 }}>
+      <div style={{ paddingBottom: BOTTOM_PAD }}>
         <Header />
         <div style={{ padding: "20px 24px" }}>
 
@@ -808,7 +808,7 @@ export default function Play({ params }) {
     const goodPlayers = players.filter(p => p.team === "good")
 
     phaseContent = (
-      <div style={{ paddingBottom: 48 }}>
+      <div style={{ paddingBottom: BOTTOM_PAD }}>
         <Header sub="Assassination" showTrack={false} />
         <div style={{ padding: "20px 24px" }}>
           {amAssassin ? (
@@ -870,7 +870,7 @@ export default function Play({ params }) {
     const evilPlayers2 = players.filter(p => p.team === "evil")
 
     phaseContent = (
-      <div style={{ paddingBottom: 48 }}>
+      <div style={{ paddingBottom: BOTTOM_PAD }}>
         <Header sub="Game Over" showTrack={false} />
         <div style={{ padding: "20px 24px" }}>
           <div style={{
