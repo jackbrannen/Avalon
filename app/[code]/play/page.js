@@ -230,6 +230,9 @@ export default function Play({ params }) {
 
   const me        = players.find(p => p.id === myId)
 
+  // Mini card: visible on all phases after role has been seen
+  const hasSeenRole  = cardPhase !== "unset"
+
   // ── PokeSystem (always mounted for notifications) ──────────────────────────
   const pokeSystemNode = me ? (
     <PokeSystem
@@ -273,8 +276,6 @@ export default function Play({ params }) {
   const teamColor   = me ? (me.team === "good" ? GOOD : EVIL) : GOLD
   const teamLabel   = me?.team === "good" ? "Good" : "Evil — Minions of Mordred"
 
-  // Mini card: visible on all phases after role has been seen
-  const hasSeenRole  = cardPhase !== "unset"
 // Score menu bar: show during active quest phases
   const showMenuBar = ["propose", "vote", "mission", "result", "assassination"].includes(phase)
 
