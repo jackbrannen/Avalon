@@ -17,19 +17,6 @@ const MIN_PLAYERS = 5
 
 const WORDS_A = ["AMBER","CEDAR","CRIMSON","DAGGER","EMBER","FALCON","GLACIER","HARBOR","INDIGO","JASPER","KODIAK","LANTERN","MARBLE","NEBULA","ONYX","PHANTOM","QUARTZ","RAVEN","SILVER","TOPAZ"]
 
-const INSTRUCTIONS = `Players: 5–10 · Hidden roles · Time: 20+ min
-
-A social deduction game of good vs. evil. At the start, each player is secretly assigned a role — either a Loyal Servant of Arthur (good) or a Minion of Mordred (evil). Evil players know who each other are. Merlin knows who is evil but must stay hidden.
-
-The game is a series of 5 quests. Each quest, a rotating leader proposes a team of players to go on the quest. Everyone votes to approve or reject the proposed team. (If 5 proposals in a row are rejected, evil wins immediately.)
-
-If the team is approved, the players on the quest secretly vote Success or Fail. Good players must vote Success. Evil players can vote Fail to sabotage the quest. One Fail card is enough to fail most quests (Quest 4 with 7+ players requires 2 Fail cards).
-
-Good wins if 3 quests succeed — but evil gets one last chance: the Assassin can name who they think Merlin is. If correct, evil wins even after 3 successes.
-
-Evil wins if 3 quests fail, or if 5 consecutive proposals are rejected, or if the Assassin correctly identifies Merlin.
-
-Quest team sizes vary by player count and quest number.`
 
 function splitCode(code) {
   for (const w of WORDS_A) {
@@ -69,6 +56,7 @@ export default function Lobby({ params }) {
   const code = useMemo(() => params.code.toUpperCase(), [params.code])
 
   const [showInstructions, setShowInstructions] = useState(false)
+  const [instructions, setInstructions] = useState("")
   const [gameExists, setGameExists]   = useState(null)
   const [gamePhase, setGamePhase]     = useState("lobby")
   const [players, setPlayers]         = useState([])
@@ -110,6 +98,8 @@ export default function Lobby({ params }) {
   useEffect(() => {
     const existing = localStorage.getItem(`avalon:${code}:playerId`)
     if (existing) setMyPlayerId(existing)
+    supabase.from("game_instructions").select("body").eq("game_key", "avalon").single()
+      .then(({ data }) => { if (data?.body) setInstructions(data.body) })
     loadGame().then(() => refreshPlayers())
   }, [code])
 
@@ -122,7 +112,7 @@ export default function Lobby({ params }) {
         .eq("code", code)
         .single()
       if (data) setGamePhase(data.phase)
-    }, 5000)
+    }, 1500)
     return () => clearInterval(poll)
   }, [code])
 
@@ -341,7 +331,7 @@ export default function Lobby({ params }) {
               <button onClick={() => setShowInstructions(false)} style={{ background: "rgba(255,255,255,0.15)", color: "white", fontSize: 18, fontWeight: 800, padding: "6px 12px" }}>✕</button>
             </div>
             <div style={{ fontSize: 15, color: "rgba(255,255,255,0.85)", lineHeight: 1.7, fontWeight: 400, whiteSpace: "pre-wrap" }}>
-              {INSTRUCTIONS}
+              {instructions || "Loading…"}
             </div>
           </div>
         </div>

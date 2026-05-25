@@ -168,6 +168,7 @@ export default function Play({ params }) {
   const [acting, setActing]             = useState(false)
   const [animReady, setAnimReady]       = useState(false)
   const [showGameModal, setShowGameModal] = useState(false)
+  const [instructions, setInstructions] = useState("")
   const soundTriggerRef = useRef(null)
 
   useEffect(() => {
@@ -194,8 +195,10 @@ export default function Play({ params }) {
   }
 
   useEffect(() => {
+    supabase.from("game_instructions").select("body").eq("game_key", "avalon").single()
+      .then(({ data }) => { if (data?.body) setInstructions(data.body) })
     refresh()
-    const t = setInterval(refresh, 5000)
+    const t = setInterval(refresh, 1500)
     return () => clearInterval(t)
   }, [code])
 
@@ -243,6 +246,7 @@ export default function Play({ params }) {
       playerDetails={players.map(p => ({ name: p.name, firstName: p.first_name, lastName: p.last_name }))}
       gamePhase={game?.phase}
       roleContent={hasSeenRole ? <RoleCardBody /> : null}
+      rules={instructions ? [["How to Play", instructions]] : null}
       onResetToLobby={async () => { await supabase.rpc("avalon_reset_to_lobby", { p_code: code }) }}
     />
   ) : null

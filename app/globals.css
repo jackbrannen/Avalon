@@ -48,3 +48,8 @@ ul, ol {
 ::placeholder {
   color: rgba(255, 255, 255, 0.4);
 }
+
+@keyframes nudgePulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.5); }
+}
