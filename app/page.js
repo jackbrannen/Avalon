@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../lib/supabase"
+import { useSubmitNudge } from "../lib/useSubmitNudge"
 
 const BG = "#0F1923"
 const GOLD = "#C9A84C"
@@ -41,6 +42,7 @@ async function createGame() {
 export default function Home() {
   const router = useRouter()
   const [joinCode, setJoinCode] = useState("")
+  const nudgeJoin = useSubmitNudge(joinCode, false)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState("")
 
@@ -117,6 +119,7 @@ export default function Home() {
             style={{
               background: WARM_LIGHT, color: TEXT,
               fontSize: 18, fontWeight: 900, padding: "18px 20px", flexShrink: 0,
+              animation: nudgeJoin ? "nudgePulse 1.5s ease-in-out infinite" : "none",
             }}
           >
             Join
